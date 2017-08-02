@@ -21,7 +21,7 @@ class EmailReceiver {
             .then(this.extractRawEmailBufferFromS3Object)
             .then(this.extractCsvBufferFromRawEmailBuffer)
             .then(this.translateCsvBufferToJsonObjects)
-            .then(this.logObject)
+            .then(this.logObject);
             /*.then(bind(insertObjectsIntoDynamoTable, tableName))*/
     }
 
@@ -38,7 +38,7 @@ class EmailReceiver {
             // Important that this is last
             return "Animals";
         } else {
-            throw new Error("Could not infer table name from subject " + subject)
+            throw new Error("Could not infer table name from subject " + subject);
         }
     }
 
