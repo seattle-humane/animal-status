@@ -1,0 +1,17 @@
+{
+  "name": "animal-status",
+  "version": "1.0.0",
+  "description": "Serverless API for maintaining state of shelter animals.",
+  "repository": "https://github.com/seattle-humane/animal-status",
+  "main": "functions/receiveemail.js",
+  "dependencies": {
+    "csv-parse": "^1.2.1",
+    "nodemailer": "^4.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "dbjorge@gmail.com",
+  "license": "MIT"
+}

@@ -1,0 +1,23 @@
+service: animal-status
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+  region: us-west-2
+  iamRoleStatements: ${file(./resource_configs/iamRoleStatements.yml):iamRoleStatements}
+
+package:
+  include:
+    - node_modules/**
+  exclude:
+    - package.json
+
+functions:
+  receiveemail:
+    handler: functions/receiveemail.handler
+    memorySize: 128 # About ~32mb of nodejs overhead, the CSV emails are typically ~150kb
+    # serverless doesn't support an email event, so the trigger has to be configured manually. see docs/setup.md
+
+resources:
+  - ${file(./resource_configs/dynamodb.yml)}
+  - ${file(./resource_configs/s3.yml)}

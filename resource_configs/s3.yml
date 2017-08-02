@@ -1,0 +1,30 @@
+Resources:
+  AnimalStatusEmailS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: animal-status-email
+
+  AnimalStatusEmailS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties: 
+      Bucket:
+        Ref: AnimalStatusEmailS3Bucket
+      PolicyDocument:
+        Statement:
+          - Sid: GiveSESPermissionToWriteEmail
+            Action:
+              - s3:PutObject
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                -
+                  - "arn:aws:s3:::"
+                  - Ref: AnimalStatusEmailS3Bucket
+                  - "/*"
+            Principal:
+              Service: ses.amazonaws.com
+            Condition:
+              StringEquals:
+                aws:Referer:
+                  Ref: 'AWS::AccountId'

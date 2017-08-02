@@ -1,0 +1,124 @@
+Resources:
+  AnimalsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Animals
+      AttributeDefinitions:
+        - AttributeName: AnimalId
+          AttributeType: S
+        - AttributeName: Location
+          AttributeType: S
+        - AttributeName: SubLocation
+          AttributeType: S
+      KeySchema:
+        - AttributeName: AnimalId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 100
+        WriteCapacityUnits: 10
+      GlobalSecondaryIndexes:
+        - IndexName: LocationAnimalIndex
+          KeySchema:
+            - AttributeName: Location
+              KeyType: HASH
+            - AttributeName: SubLocation
+              KeyType: RANGE
+          Projection:
+            ProjectionType: KEYS_ONLY
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 1
+
+  AnimalHoldsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AnimalHolds
+      AttributeDefinitions:
+        - AttributeName: AnimalId
+          AttributeType: S
+        - AttributeName: HoldId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: AnimalId
+          KeyType: HASH
+        - AttributeName: HoldId
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 10
+
+  AnimalPetIdsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AnimalPetIds
+      AttributeDefinitions:
+        - AttributeName: AnimalId
+          AttributeType: S
+        - AttributeName: CreatedDateTime
+          AttributeType: S
+      KeySchema:
+        - AttributeName: AnimalId
+          KeyType: HASH
+        - AttributeName: CreatedDateTime
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 10
+
+  AnimalMemosDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AnimalMemos
+      AttributeDefinitions:
+        - AttributeName: AnimalId
+          AttributeType: S
+        - AttributeName: CreatedDateTime
+          AttributeType: S
+        - AttributeName: MemoType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: AnimalId
+          KeyType: HASH
+        - AttributeName: CreatedDateTime
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 20
+      LocalSecondaryIndexes:
+        - IndexName: AnimalMemoTypeIndex
+          KeySchema:
+            - AttributeName: AnimalId
+              KeyType: HASH
+            - AttributeName: MemoType
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  AnimalBehaviorTestsDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AnimalBehaviorTests
+      AttributeDefinitions:
+        - AttributeName: AnimalId
+          AttributeType: S
+        - AttributeName: CreatedDateTime
+          AttributeType: S
+        - AttributeName: BehaviorCategory-BehaviorTest
+          AttributeType: S
+      KeySchema:
+        - AttributeName: AnimalId
+          KeyType: HASH
+        - AttributeName: CreatedDateTime
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 10
+      LocalSecondaryIndexes:
+        - IndexName: AnimalBehaviorTestCategoryTestIndex
+          KeySchema:
+            - AttributeName: AnimalId
+              KeyType: HASH
+            - AttributeName: BehaviorCategory-BehaviorTest
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
