@@ -11,17 +11,16 @@ class EmailReceiver {
 
     handleEmailNotification(sesNotification) {
         var tableName = this.inferTableNameFromEmailSubject(sesNotification.mail.commonHeaders.subject);
-        console.log("Inferred table name " + tableName + " from email subject");
 
         // Retrieve the email from your bucket
         return this.s3.getObject({
             Bucket: this.bucketName,
             Key: sesNotification.mail.messageId
         }).promise()
-            .then(this.extractRawEmailBufferFromS3Object)
-            .then(this.extractCsvBufferFromRawEmailBuffer)
-            .then(this.translateCsvBufferToJsonObjects)
-            .then(this.logObject);
+            .then(this.extractRawEmailBufferFromS3Object.bind(this))
+            .then(this.extractCsvBufferFromRawEmailBuffer.bind(this))
+            .then(this.translateCsvBufferToJsonObjects.bind(this))
+            .then(this.logObject.bind(this));
             /*.then(bind(insertObjectsIntoDynamoTable, tableName))*/
     }
 
@@ -65,6 +64,10 @@ class EmailReceiver {
             .replace("#", "Id")
             .replace(" ", "")
             .replace("/", "");
+    }
+
+    logObject(object) {
+        console.log(JSON.stringify(object, null, 2));
     }
 }
 

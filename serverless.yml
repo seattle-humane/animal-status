@@ -6,12 +6,12 @@ provider:
   region: us-west-2
   iamRoleStatements: ${file(./resource_configs/iamRoleStatements.yml):iamRoleStatements}
 
-#package:
-#  exclude:
-#    - "**"
-#  include:
-#    - node_modules/**
-#    - functions/**
+package:
+  exclude:
+    - "**"
+  include:
+    - node_modules/**
+    - functions/**
 
 functions:
   receiveemail:
