@@ -1,12 +1,17 @@
 'use strict';
 
 const mailparser = require('mailparser');
-const csvparse = require('csv-parse/lib/sync')
+const csvparse = require('csv-parse');
+const moment = require('moment-timezone');
+
+// This must be assumed/configured - the source data does not contain offset information
+const inputTimeZone = 'America/Los_Angeles'
 
 class EmailReceiver {
-    constructor(s3, bucketName) {
+    constructor(s3, s3bucketName, dynamodb) {
         this.s3 = s3;
-        this.bucketName = bucketName;
+        this.s3bucketName = s3bucketName;
+        this.dynamodb = dynamodb;
     }
 
     handleEmailNotification(sesNotification) {
@@ -14,14 +19,18 @@ class EmailReceiver {
 
         // Retrieve the email from your bucket
         return this.s3.getObject({
-            Bucket: this.bucketName,
+            Bucket: this.s3bucketName,
             Key: sesNotification.mail.messageId
         }).promise()
-            .then(this.extractRawEmailBufferFromS3Object.bind(this))
-            .then(this.extractCsvBufferFromRawEmailBufferAsync.bind(this))
-            .then(this.translateCsvBufferToJsonObjects.bind(this))
-            .then(this.logObject.bind(this));
-            /*.then(bind(insertObjectsIntoDynamoTable, tableName))*/
+            .bind(this)
+            .then(this.extractRawEmailBufferFromS3Object)
+            .then(this.extractCsvBufferFromRawEmailBufferAsync)
+            .then(this.translateCsvBufferToJsonObjectsAsync)
+            .then(this.sanitizeDateTimeProperties)
+            .then(this.injectDerivedObjectProperties)
+            .then((objects) => this.injectConstantProperties(
+                {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
+            .then((objects) => this.insertObjectsIntoDynamoTable(tableName, objects))
     }
 
     inferTableNameFromEmailSubject(subject) {
@@ -52,8 +61,15 @@ class EmailReceiver {
             .then(email => email.attachments[0].content);
     }
 
-    translateCsvBufferToJsonObjects(csvBuffer) {
-        return csvparse(csvBuffer, { columns: this.sanitizeColumnNames });
+    translateCsvBufferToJsonObjectsAsync(csvBuffer) {
+        const parseOptions = { columns: this.sanitizeColumnNames.bind(this) }
+
+        return new Promise(function(resolve, reject) {
+            return csvparse(csvBuffer, parseOptions, function (err, output) {
+                if (err) { reject(err); }
+                resolve(output);
+            });
+        });
     }
 
     sanitizeColumnNames(columnNames) {
@@ -62,14 +78,85 @@ class EmailReceiver {
 
     sanitizeColumnName(columnName) {
         return columnName
-            .replace("#", "Id")
-            .replace(" ", "")
-            .replace("/", "");
+            .replace(/#/g, "Id")
+            .replace(/ /g, "")
+            .replace(/\//g, "")
+            .replace(/\(login\)/g, "")
+            .replace(/Sub-location/g, "SubLocation")
+            .replace(/ID/g, "Id")
+            .replace(/Date$/g, "DateTime");
+    }
+
+    // Converts from original format to ISO8601 (uses the default moment timezone set at top of file)
+    sanitizeDateTime(originalDateTimeString) {
+        return moment.tz(originalDateTimeString, "M/D/YYYY h:m A", inputTimeZone).utc().format();
+    }
+
+    sanitizeDateTimeProperties(allObjects) {
+        const dateTimePropertyNameRegex = /DateTime$/
+        return allObjects.map((originalObject) => {
+            const newObject = clone(originalObject);
+            for (var propertyName in newObject) {
+                if (dateTimePropertyNameRegex.test(propertyName)) {
+                    newObject[propertyName] = this.sanitizeDateTime(newObject[propertyName]);
+                }
+            }
+            return newObject;
+        });
+    }
+
+    // This is for DynamoDB's benefit, where we want to make an index based on more than 2 properties
+    injectDerivedObjectProperties(allObjects) {
+        const derivedPropertyDefinitions = [
+            { basePropertyNames: ['BehaviorCategory', 'BehaviorTest'] }
+        ];
+
+        return allObjects.map((originalObject) => {
+            const newObject = clone(originalObject);
+            derivedPropertyDefinitions.forEach((derivedPropertyDefinition) => {
+                const basePropertyNames = derivedPropertyDefinition.basePropertyNames;
+                if (basePropertyNames.every((baseProperty) => newObject.hasOwnProperty(baseProperty))) {
+                    const derivedPropertyName = basePropertyNames.join('-');
+                    const derivedPropertyValue = basePropertyNames.map(prop => newObject[prop]).join('-');
+                    newObject[derivedPropertyName] = derivedPropertyValue;
+                }
+            });
+            return newObject;
+        });
+    }
+
+    injectConstantProperties(constantProperties, objects) {
+        return objects.map((originalObject) =>
+            Object.assign(clone(originalObject), constantProperties));
+    }
+
+    insertObjectsIntoDynamoTable(tableName, objects) {
+        var params = { RequestItems: { } };
+        params.RequestItems[tableName] = [
+            {
+                PutRequest: {
+                    Item: {
+                        // probably most robust to do this explicitly per object type
+                        // that obsoletes
+                        //   * sanitizeDateTimeProperties
+                        //   * injectDerivedObjectProperties
+                        //   * injectConstantProperties
+                        // ...oops
+                    }
+                }
+            },
+        ];
+
+        return this.dynamodb.batchWriteItems(params).promise();
     }
 
     logObject(object) {
         console.log(JSON.stringify(object, null, 2));
     }
+}
+
+function clone(object) {
+    return JSON.parse(JSON.stringify(object));
 }
 
 module.exports = EmailReceiver;

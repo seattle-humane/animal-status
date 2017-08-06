@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const EmailReceiver = require('../../functions/receive-email/email-receiver')
-const emailReceiver = new EmailReceiver(null, 'nonexistent-test-bucket');
+const emailReceiver = new EmailReceiver(null, 'nonexistent-test-bucket', null);
 
 test('inferTableNameFromEmailSubject infers Animals table for corresponding subject', () => {
     expect(emailReceiver.inferTableNameFromEmailSubject(
@@ -64,4 +64,54 @@ test('santizeColumnName translates "Animal #" to "AnimalId"', () => {
 
 test('santizeColumnName removes / characters', () => {
     expect(emailReceiver.sanitizeColumnName('Foo/Bar')).toBe('FooBar');
+});
+
+test('translateCsvBufferToJsonObjects translates the simplest possible CSV', () => {
+    const inputCsvBuffer = Buffer.from('"Key"\n"Value"');
+    return expect(emailReceiver.translateCsvBufferToJsonObjectsAsync(inputCsvBuffer))
+        .resolves.toEqual([{Key: 'Value'}]);
+});
+
+test('translateCsvBufferToJsonObjects calls sanitizeColumnName', () => {
+    const inputCsvBuffer = Buffer.from('"Animal #"\n"A123"');
+    return expect(emailReceiver.translateCsvBufferToJsonObjectsAsync(inputCsvBuffer))
+        .resolves.toEqual([{AnimalId: 'A123'}]);
+});
+
+test('sanitizeColumnName sanitizes real example inputs as expected', () => {
+    expect(emailReceiver.sanitizeColumnName('Animal #')).toEqual('AnimalId');
+    expect(emailReceiver.sanitizeColumnName('Last Updated Date/Time')).toEqual('LastUpdatedDateTime');
+    expect(emailReceiver.sanitizeColumnName('Review Date')).toEqual('ReviewDateTime');
+    expect(emailReceiver.sanitizeColumnName('Memo By (login)')).toEqual('MemoBy');
+    expect(emailReceiver.sanitizeColumnName('Pet ID Number')).toEqual('PetIdNumber');
+    expect(emailReceiver.sanitizeColumnName('Sub-location')).toEqual('SubLocation');
+});
+
+test('sanitizeDateTime converts from original format to ISO8601', () => {
+    expect(emailReceiver.sanitizeDateTime('2/4/2010 12:00 AM')).toEqual('2010-02-04T08:00:00Z');
+});
+
+test('sanitizeDateTimeProperties invokes sanitizeDateTime on the expected values', () => {
+    expect(emailReceiver.sanitizeDateTimeProperties([{ CreatedDateTime: '2/4/2010 12:00 AM' }]))
+        .toEqual([{ CreatedDateTime: '2010-02-04T08:00:00Z' }]);
+});
+
+test('injectDerivedObjectProperties injects a BehaviorCategory-BehaviorTest property', () => {
+    expect(emailReceiver.injectDerivedObjectProperties([{BehaviorCategory: 'foo', BehaviorTest: 'bar'}]))
+        .toEqual([{ BehaviorCategory: 'foo', BehaviorTest: 'bar', 'BehaviorCategory-BehaviorTest':'foo-bar' }]);
+});
+
+test('injectDerivedObjectProperties noops for objects that dont need derived properties', () => {
+    expect(emailReceiver.injectDerivedObjectProperties([{ Foo: 'foo', Bar: 'bar' }]))
+        .toEqual([{ Foo: 'foo', Bar: 'bar'}]);
+});
+
+test('injectConstantProperties merges constant properties into input objects', () => {
+    expect(emailReceiver.injectConstantProperties(
+        { foo: 'foo', bar: 'bar' },
+        [{ id: 1 }, { id: 2 }]))
+        .toEqual([
+            { id: 1, foo: 'foo', bar: 'bar' },
+            { id: 2, foo: 'foo', bar: 'bar' },
+        ]);
 });
