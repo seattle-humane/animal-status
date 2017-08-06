@@ -50,18 +50,13 @@ test('extractRawEmailBufferFromS3Object extracts Body', () => {
         .toEqual(sampleBodyBuffer);
 });
 
-/*
-TODO: Work out why this hangs and uncomment it
-
-test('extractCsvBufferFromRawEmailBuffer correctly translates from email content to csv', () => {
+test('extractCsvBufferFromRawEmailBufferAsync correctly translates from email content to csv', () => {
     var exampleEmailBuffer = fs.readFileSync(path.join(__dirname, 'email-receiver.test.example-email-1-raw.txt'));
     var expectedCsvBuffer = fs.readFileSync(path.join(__dirname, 'email-receiver.test.example-email-1-attachment.csv'));
     
-    return emailReceiver
-        .extractCsvBufferFromRawEmailBuffer(exampleEmailBuffer)
+    return expect(emailReceiver.extractCsvBufferFromRawEmailBufferAsync(exampleEmailBuffer))
         .resolves.toEqual(expectedCsvBuffer);
 });
-*/
 
 test('santizeColumnName translates "Animal #" to "AnimalId"', () => {
     expect(emailReceiver.sanitizeColumnName('Animal #')).toBe('AnimalId');

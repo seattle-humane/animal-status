@@ -18,7 +18,7 @@ class EmailReceiver {
             Key: sesNotification.mail.messageId
         }).promise()
             .then(this.extractRawEmailBufferFromS3Object.bind(this))
-            .then(this.extractCsvBufferFromRawEmailBuffer.bind(this))
+            .then(this.extractCsvBufferFromRawEmailBufferAsync.bind(this))
             .then(this.translateCsvBufferToJsonObjects.bind(this))
             .then(this.logObject.bind(this));
             /*.then(bind(insertObjectsIntoDynamoTable, tableName))*/
@@ -46,9 +46,10 @@ class EmailReceiver {
         return s3Object.Body;
     }
 
-    extractCsvBufferFromRawEmailBuffer(rawEmailBuffer) {
-        return mailparser.simpleParser(rawEmailBuffer)
-            .then(mail => mail.attachments[0].content);
+    extractCsvBufferFromRawEmailBufferAsync(rawEmailBuffer) {
+        return mailparser
+            .simpleParser(rawEmailBuffer)
+            .then(email => email.attachments[0].content);
     }
 
     translateCsvBufferToJsonObjects(csvBuffer) {
