@@ -99,7 +99,7 @@ class EmailReceiver {
     }
 
     static injectConstantProperties(constantProperties, objects) {
-        console.log(`injectConstantProperties (${constantProperties.length} props, ${objects.length} objects)`);
+        console.log(`injectConstantProperties (${JSON.stringify(constantProperties)} -> ${objects.length} objects)`);
         objects.forEach(o => Object.assign(o, constantProperties));
         return objects;
     }
