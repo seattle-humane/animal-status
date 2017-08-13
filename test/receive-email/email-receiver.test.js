@@ -48,34 +48,6 @@ test('sanitizeDateTime preserves minutes', () => {
     expect(emailReceiver.sanitizeDateTime('8/12/2017 11:56 AM')).toMatch(/:56:00Z$/);
 });
 
-test('sanitizeDateTimeProperties invokes sanitizeDateTime on the expected values', () => {
-    expect(emailReceiver.sanitizeDateTimeProperties([{ CreatedDateTime: '2/4/2010 12:00 AM' }]))
-        .toEqual([{ CreatedDateTime: '2010-02-04T08:00:00Z' }]);
-
-    expect(emailReceiver.sanitizeDateTimeProperties([{ DateOfBirth: '2/4/2010 12:00 AM' }]))
-        .toEqual([{ DateOfBirth: '2010-02-04T08:00:00Z' }]);
-});
-
-test('sanitizeDateTimeProperties does not invoke sanitizeDateTime on non-date values', () => {
-    expect(emailReceiver.sanitizeDateTimeProperties([{ SomeNonDateString: 'foo' }]))
-        .toEqual([{ SomeNonDateString: 'foo' }]);
-});
-
-test('sanitizeEmptyStringValues ignores non-string properties', () => {
-    expect(emailReceiver.sanitizeEmptyStringValues([{ nonstring: 1 }]))
-        .toEqual([{ nonstring: 1 }]);
-});
-
-test('sanitizeEmptyStringValues ignores non-empty string properties', () => {
-    expect(emailReceiver.sanitizeEmptyStringValues([{ nonemptystring: '1' }]))
-        .toEqual([{ nonemptystring: '1' }]);
-});
-
-test('sanitizeEmptyStringValues removes empty string properties', () => {
-    expect(emailReceiver.sanitizeEmptyStringValues([{ emptystring: '' }]))
-        .toEqual([{ }]);
-});
-
 test('injectConstantProperties merges constant properties into input objects', () => {
     expect(emailReceiver.injectConstantProperties(
         { foo: 'foo', bar: 'bar' },

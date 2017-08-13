@@ -86,6 +86,8 @@ class NestedCsvParser {
     static parseAsync(csvBufferOrString, csvParserConfig = {}) {
         return new Promise(function(resolve, reject) {
             try {
+                var mapValue = csvParserConfig.mapValue || (x => x);
+                
                 var inputStream = stringToStream(csvBufferOrString);
 
                 var subTypeToPropertyMap = null;
@@ -107,7 +109,11 @@ class NestedCsvParser {
                         if (subType === '') {
                             currentObject = new Object();
                             for(var i in properties) {
-                                currentObject[properties[i]] = data[properties[i]];
+                                var originalValue = data[properties[i]];
+                                var mappedValue = mapValue(originalValue, properties[i]);
+                                if (mappedValue !== null) {
+                                    currentObject[properties[i]] = mappedValue;
+                                }
                             }
                             allObjects.push(currentObject);
                         } else {
@@ -121,7 +127,11 @@ class NestedCsvParser {
                             }
                             
                             for(var i in properties) {
-                                subTypeObject[properties[i]] = data[subTypePrefix + properties[i]];
+                                var originalValue = data[subTypePrefix + properties[i]];
+                                var mappedValue = mapValue(originalValue, properties[i]);
+                                if (mappedValue !== null) {
+                                    subTypeObject[properties[i]] = mappedValue;
+                                }
                             }
                         }
                     })

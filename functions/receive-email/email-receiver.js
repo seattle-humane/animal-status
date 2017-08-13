@@ -62,7 +62,10 @@ class EmailReceiver {
 
     static translateCsvBufferToJsonObjectsAsync(csvBuffer) {
         console.log('translateCsvBufferToJsonObjectsAsync');
-        return nestedCsvParser.parseAsync(csvBuffer, {mapHeaders: EmailReceiver.sanitizeColumnName});
+        return nestedCsvParser.parseAsync(csvBuffer, {
+            mapHeaders: EmailReceiver.sanitizeColumnName,
+            mapValue: EmailReceiver.sanitizePropertyValue
+        });
     }
 
     static sanitizeColumnName(name) {
@@ -77,44 +80,30 @@ class EmailReceiver {
             .replace(/Date$/g, "DateTime");
     }
 
+    static sanitizePropertyValue(originalValue, propertyName) {
+        // DynamoDB doesn't allow empty string attributes - they can either be dropped
+        // or replaced with a placeholder. We arbitrarily choose the former.
+        if (originalValue === '') {
+            return null;
+        }
+
+        const dateTimePropertyNameRegex = /(DateTime|DateOfBirth)$/;
+        if (dateTimePropertyNameRegex.test(propertyName)) {
+            return sanitizeDateTime(originalValue);
+        }
+
+        return originalValue;
+    }
+
     // Converts from original format to ISO8601 (uses the default moment timezone set at top of file)
     static sanitizeDateTime(originalDateTimeString) {
         return moment.tz(originalDateTimeString, "M/D/YYYY h:m A", inputTimeZone).utc().format();
     }
 
-    static sanitizeDateTimeProperties(allObjects) {
-        console.log('sanitizeDateTimeProperties');
-        const dateTimePropertyNameRegex = /(DateTime|DateOfBirth)$/
-        return allObjects.map((originalObject) => {
-            const newObject = clone(originalObject);
-            for (var propertyName in newObject) {
-                if (dateTimePropertyNameRegex.test(propertyName)) {
-                    newObject[propertyName] = EmailReceiver.sanitizeDateTime(newObject[propertyName]);
-                }
-            }
-            return newObject;
-        });
-    }
-
-    // DynamoDB doesn't allow empty string attributes - they can either be dropped
-    // or replaced with a placeholder. We arbitrarily choose the former.
-    static sanitizeEmptyStringValues(allObjects) {
-        console.log('sanitizeEmptyStringValues');
-        return allObjects.map((originalObject) => {
-            const newObject = clone(originalObject);
-            for (var propertyName in newObject) {
-                if (newObject[propertyName] === '') {
-                    delete newObject[propertyName];
-                }
-            }
-            return newObject;
-        });
-    }
-
     static injectConstantProperties(constantProperties, objects) {
         console.log('injectConstantProperties');
-        return objects.map((originalObject) =>
-            Object.assign(clone(originalObject), constantProperties));
+        objects.forEach(o => Object.assign(o, constantProperties));
+        return objects;
     }
 
     static translateObjectsToDynamoRequests(objects) {
