@@ -7,6 +7,14 @@ const moment = require('moment-timezone');
 // This must be assumed/configured - the source data does not contain offset information
 const inputTimeZone = 'America/Los_Angeles'
 
+const MAX_DYANMO_BATCH_WRITE_SIZE = 25;
+
+// DynamoDB doesn't allow string attributes to have empty values, but we want
+// to be able to distinguish between entries where we haven't ingested a value
+// and entries where we've ingested an empty value, so we use this wherever our
+// input data has an empty string.
+const EMPTY_STRING_PLACEHOLDER = ':::EMPTY_STRING_DYNAMODB_WORKAROUND:::'
+
 class EmailReceiver {
     constructor(s3, s3bucketName, dynamodbDocumentClient) {
         this.s3 = s3;
@@ -22,6 +30,7 @@ class EmailReceiver {
             .then(EmailReceiver.extractCsvBufferFromRawEmailBufferAsync)
             .then(EmailReceiver.translateCsvBufferToJsonObjectsAsync)
             .then(EmailReceiver.sanitizeDateTimeProperties)
+            .then(EmailReceiver.sanitizeEmptyStringValues)
             .then(EmailReceiver.injectDerivedObjectProperties)
             .then((objects) => EmailReceiver.injectConstantProperties(
                 {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
@@ -116,6 +125,18 @@ class EmailReceiver {
         });
     }
 
+    static sanitizeEmptyStringValues(allObjects) {
+        return allObjects.map((originalObject) => {
+            const newObject = clone(originalObject);
+            for (var propertyName in newObject) {
+                if (newObject[propertyName] === '') {
+                    newObject[propertyName] = EMPTY_STRING_PLACEHOLDER;
+                }
+            }
+            return newObject;
+        });
+    }
+
     // This is for DynamoDB's benefit, where we want to make an index based on more than 2 properties
     static injectDerivedObjectProperties(allObjects) {
         const derivedPropertyDefinitions = [
@@ -142,7 +163,6 @@ class EmailReceiver {
     }
 
     static translateObjectsToDynamoRequests(tableName, objects) {
-        const MAX_DYANMO_BATCH_WRITE_SIZE = 25;
         var objectPages = EmailReceiver.paginateArray(objects, MAX_DYANMO_BATCH_WRITE_SIZE);
 
         console.log("Forming " + objectPages.length + " Dynamo batchWrite request(s) to table " + tableName + " for " + objects.length + " object(s)");

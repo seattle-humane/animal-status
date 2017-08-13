@@ -95,6 +95,21 @@ test('sanitizeDateTimeProperties invokes sanitizeDateTime on the expected values
         .toEqual([{ CreatedDateTime: '2010-02-04T08:00:00Z' }]);
 });
 
+test('sanitizeEmptyStringValues ignores non-string properties', () => {
+    expect(emailReceiver.sanitizeEmptyStringValues([{ nonstring: 1 }]))
+        .toEqual([{ nonstring: 1 }]);
+});
+
+test('sanitizeEmptyStringValues ignores non-empty string properties', () => {
+    expect(emailReceiver.sanitizeEmptyStringValues([{ nonemptystring: '1' }]))
+        .toEqual([{ nonemptystring: '1' }]);
+});
+
+test('sanitizeEmptyStringValues replaces empty string properties with a placeholder', () => {
+    expect(emailReceiver.sanitizeEmptyStringValues([{ emptystring: '' }]))
+        .toEqual([{ emptystring: ':::EMPTY_STRING_DYNAMODB_WORKAROUND:::' }]);
+});
+
 test('injectDerivedObjectProperties injects a BehaviorCategory-BehaviorTest property', () => {
     expect(emailReceiver.injectDerivedObjectProperties([{BehaviorCategory: 'foo', BehaviorTest: 'bar'}]))
         .toEqual([{ BehaviorCategory: 'foo', BehaviorTest: 'bar', 'BehaviorCategory-BehaviorTest':'foo-bar' }]);
