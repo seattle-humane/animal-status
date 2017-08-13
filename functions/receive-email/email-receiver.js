@@ -15,26 +15,35 @@ class EmailReceiver {
     }
 
     handleEmailNotification(sesNotification) {
-        var tableName = this.inferTableNameFromEmailSubject(sesNotification.mail.commonHeaders.subject);
-        var emailContentPromise = this.s3.getObject({
-            Bucket: this.s3bucketName,
-            Key: sesNotification.mail.messageId
-        }).promise();
+        var tableName = EmailReceiver.inferTableNameFromEmailSubject(sesNotification.mail.commonHeaders.subject);
 
-        emailContentPromise
-            .bind(this)
-            .then(this.extractRawEmailBufferFromS3Object)
-            .then(this.extractCsvBufferFromRawEmailBufferAsync)
-            .then(this.translateCsvBufferToJsonObjectsAsync)
-            .then(this.sanitizeDateTimeProperties)
-            .then(this.injectDerivedObjectProperties)
-            .then((objects) => this.injectConstantProperties(
+        return this.s3GetObjectAsync(sesNotification.mail.messageId)
+            .then(EmailReceiver.extractRawEmailBufferFromS3Object)
+            .then(EmailReceiver.extractCsvBufferFromRawEmailBufferAsync)
+            .then(EmailReceiver.translateCsvBufferToJsonObjectsAsync)
+            .then(EmailReceiver.sanitizeDateTimeProperties)
+            .then(EmailReceiver.injectDerivedObjectProperties)
+            .then((objects) => EmailReceiver.injectConstantProperties(
                 {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
-            .then((objects) => this.translateObjectsToDynamoRequest(tableName, objects))
-            .then(this.dynamoBatchWrite);
+            .then((objects) => EmailReceiver.translateObjectsToDynamoRequest(tableName, objects))
+            .then(this.dynamoBatchWriteAsync.bind(this));
     }
 
-    inferTableNameFromEmailSubject(subject) {
+    s3GetObjectAsync(objectKey) {
+        return this.s3.getObject({
+            Bucket: this.s3bucketName,
+            Key: objectKey
+        }).promise();
+    }
+
+    dynamoBatchWriteAsync(requestParams) {
+        console.log('dynamoBatchWrite called with:')
+        EmailReceiver.logObject(requestParams);
+
+        return this.dynamodbDocumentClient.batchWrite(requestParams).promise();
+    }
+
+    static inferTableNameFromEmailSubject(subject) {
         if (subject.search(/AnimalMemos/) != -1) {
             return "AnimalMemos";
         } else if (subject.search(/AnimalHolds/) != -1) {
@@ -51,18 +60,18 @@ class EmailReceiver {
         }
     }
 
-    extractRawEmailBufferFromS3Object(s3Object) {
+    static extractRawEmailBufferFromS3Object(s3Object) {
         // The s3Object's "Body" refers to the body of the HTTP response from S3, not an email body
         return s3Object.Body;
     }
 
-    extractCsvBufferFromRawEmailBufferAsync(rawEmailBuffer) {
+    static extractCsvBufferFromRawEmailBufferAsync(rawEmailBuffer) {
         return mailparser
             .simpleParser(rawEmailBuffer)
             .then(email => email.attachments[0].content);
     }
 
-    translateCsvBufferToJsonObjectsAsync(csvBuffer) {
+    static translateCsvBufferToJsonObjectsAsync(csvBuffer) {
         const parseOptions = { columns: this.sanitizeColumnNames.bind(this) }
 
         return new Promise(function(resolve, reject) {
@@ -73,11 +82,11 @@ class EmailReceiver {
         });
     }
 
-    sanitizeColumnNames(columnNames) {
+    static sanitizeColumnNames(columnNames) {
         return columnNames.map(this.sanitizeColumnName);
     }
 
-    sanitizeColumnName(columnName) {
+    static sanitizeColumnName(columnName) {
         return columnName
             .replace(/#/g, "Id")
             .replace(/ /g, "")
@@ -89,11 +98,11 @@ class EmailReceiver {
     }
 
     // Converts from original format to ISO8601 (uses the default moment timezone set at top of file)
-    sanitizeDateTime(originalDateTimeString) {
+    static sanitizeDateTime(originalDateTimeString) {
         return moment.tz(originalDateTimeString, "M/D/YYYY h:m A", inputTimeZone).utc().format();
     }
 
-    sanitizeDateTimeProperties(allObjects) {
+    static sanitizeDateTimeProperties(allObjects) {
         const dateTimePropertyNameRegex = /DateTime$/
         return allObjects.map((originalObject) => {
             const newObject = clone(originalObject);
@@ -107,7 +116,7 @@ class EmailReceiver {
     }
 
     // This is for DynamoDB's benefit, where we want to make an index based on more than 2 properties
-    injectDerivedObjectProperties(allObjects) {
+    static injectDerivedObjectProperties(allObjects) {
         const derivedPropertyDefinitions = [
             { basePropertyNames: ['BehaviorCategory', 'BehaviorTest'] }
         ];
@@ -126,12 +135,12 @@ class EmailReceiver {
         });
     }
 
-    injectConstantProperties(constantProperties, objects) {
+    static injectConstantProperties(constantProperties, objects) {
         return objects.map((originalObject) =>
             Object.assign(clone(originalObject), constantProperties));
     }
 
-    translateObjectsToDynamoRequest(tableName, objects) {
+    static translateObjectsToDynamoRequest(tableName, objects) {
         var params = { RequestItems: { } };
 
         params.RequestItems[tableName] = objects.map(o => {
@@ -146,11 +155,7 @@ class EmailReceiver {
         return params;
     }
 
-    dynamoBatchWrite(requestParams) {
-        return this.dynamodbDocumentClient.batchWrite(requestParams).promise();
-    }
-
-    logObject(object) {
+    static logObject(object) {
         console.log(JSON.stringify(object, null, 2));
     }
 }

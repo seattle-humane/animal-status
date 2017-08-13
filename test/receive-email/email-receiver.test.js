@@ -3,8 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const EmailReceiver = require('../../functions/receive-email/email-receiver')
-const emailReceiver = new EmailReceiver(null, 'nonexistent-test-bucket', null);
+const emailReceiver = require('../../functions/receive-email/email-receiver')
 
 test('inferTableNameFromEmailSubject infers Animals table for corresponding subject', () => {
     expect(emailReceiver.inferTableNameFromEmailSubject(
