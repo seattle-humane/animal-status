@@ -8,20 +8,20 @@ const moment = require('moment-timezone');
 const inputTimeZone = 'America/Los_Angeles'
 
 class EmailReceiver {
-    constructor(s3, s3bucketName, dynamodb) {
+    constructor(s3, s3bucketName, dynamodbDocumentClient) {
         this.s3 = s3;
         this.s3bucketName = s3bucketName;
-        this.dynamodb = dynamodb;
+        this.dynamodbDocumentClient = dynamodbDocumentClient;
     }
 
     handleEmailNotification(sesNotification) {
         var tableName = this.inferTableNameFromEmailSubject(sesNotification.mail.commonHeaders.subject);
-
-        // Retrieve the email from your bucket
-        return this.s3.getObject({
+        var emailContentPromise = this.s3.getObject({
             Bucket: this.s3bucketName,
             Key: sesNotification.mail.messageId
-        }).promise()
+        }).promise();
+
+        emailContentPromise
             .bind(this)
             .then(this.extractRawEmailBufferFromS3Object)
             .then(this.extractCsvBufferFromRawEmailBufferAsync)
@@ -30,7 +30,8 @@ class EmailReceiver {
             .then(this.injectDerivedObjectProperties)
             .then((objects) => this.injectConstantProperties(
                 {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
-            .then((objects) => this.insertObjectsIntoDynamoTable(tableName, objects))
+            .then((objects) => this.translateObjectsToDynamoRequest(tableName, objects))
+            .then(this.dynamoBatchWrite);
     }
 
     inferTableNameFromEmailSubject(subject) {
@@ -130,24 +131,23 @@ class EmailReceiver {
             Object.assign(clone(originalObject), constantProperties));
     }
 
-    insertObjectsIntoDynamoTable(tableName, objects) {
+    translateObjectsToDynamoRequest(tableName, objects) {
         var params = { RequestItems: { } };
-        params.RequestItems[tableName] = [
-            {
-                PutRequest: {
-                    Item: {
-                        // probably most robust to do this explicitly per object type
-                        // that obsoletes
-                        //   * sanitizeDateTimeProperties
-                        //   * injectDerivedObjectProperties
-                        //   * injectConstantProperties
-                        // ...oops
-                    }
-                }
-            },
-        ];
 
-        return this.dynamodb.batchWriteItems(params).promise();
+        params.RequestItems[tableName] = objects.map(o => {
+            return { PutRequest: {
+                Item: o,
+                ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
+                ExpressionAttributeNames: { '#OldIngestedDateTime': 'LastIngestedDateTime' },
+                ExpressionAttributeValues: { ':NewIngestedDateTime': o.LastIngestedDateTime }
+            } };
+        });
+
+        return params;
+    }
+
+    dynamoBatchWrite(requestParams) {
+        return this.dynamodbDocumentClient.batchWrite(requestParams).promise();
     }
 
     logObject(object) {

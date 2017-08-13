@@ -115,3 +115,33 @@ test('injectConstantProperties merges constant properties into input objects', (
             { id: 2, foo: 'foo', bar: 'bar' },
         ]);
 });
+
+function SomeDynamoCapableObject() { return { LastInjestedDateTime: "" } }
+
+test('translateObjectsToDynamoRequest creates one request item per input object', () => {
+    expect(
+        emailReceiver.translateObjectsToDynamoRequest('TestTable',
+            [SomeDynamoCapableObject(), SomeDynamoCapableObject(), SomeDynamoCapableObject()])
+            .RequestItems['TestTable'])
+        .toHaveLength(3);
+});
+
+test('translateObjectsToDynamoRequest translates objects to correct conditional PutRequest', () => {
+    expect(
+        emailReceiver.translateObjectsToDynamoRequest('TestTable',
+            [{ id: 1, LastIngestedDateTime: '2010-02-04T08:00:00Z' }]))
+        .toEqual({
+            RequestItems: {
+                'TestTable': [
+                    {
+                        PutRequest: {
+                            Item: { id: 1, LastIngestedDateTime: '2010-02-04T08:00:00Z' },
+                            ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
+                            ExpressionAttributeNames: { '#OldIngestedDateTime': 'LastIngestedDateTime' },
+                            ExpressionAttributeValues: { ':NewIngestedDateTime': '2010-02-04T08:00:00Z' }
+                        }
+                    }
+                ]
+            }
+        });
+});
