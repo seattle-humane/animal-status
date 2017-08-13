@@ -21,22 +21,10 @@ test('extractCsvBufferFromRawEmailBufferAsync correctly translates from email co
         .resolves.toEqual(expectedCsvBuffer);
 });
 
-test('santizeColumnName translates "Animal #" to "AnimalId"', () => {
-    expect(emailReceiver.sanitizeColumnName('Animal #')).toBe('AnimalId');
-});
-
-test('santizeColumnName removes / characters', () => {
-    expect(emailReceiver.sanitizeColumnName('Foo/Bar')).toBe('FooBar');
-});
-
-test('translateCsvBufferToJsonObjects translates the simplest possible CSV', () => {
-    const inputCsvBuffer = Buffer.from('"Key"\n"Value"');
-    return expect(emailReceiver.translateCsvBufferToJsonObjectsAsync(inputCsvBuffer))
-        .resolves.toEqual([{Key: 'Value'}]);
-});
-
 test('translateCsvBufferToJsonObjects calls sanitizeColumnName', () => {
-    const inputCsvBuffer = Buffer.from('"Animal #"\n"A123"');
+    const inputCsvBuffer = Buffer.from(
+`__RowSubType,Animal #
+,A123`);
     return expect(emailReceiver.translateCsvBufferToJsonObjectsAsync(inputCsvBuffer))
         .resolves.toEqual([{AnimalId: 'A123'}]);
 });

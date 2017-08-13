@@ -62,7 +62,7 @@ test('subTypeToPropertyMap correctly groups example headers', () => {
         'BaseProperty2',
         'SubType1:SubType1Property1',
         'SubType1:SubType1Property2',
-        'SubType2:SubType2Property1']))
+        'SubType2:SubType2Property1'], x => x))
         .toEqual({
             '': ['BaseProperty1', 'BaseProperty2'],
             'SubType1': ['SubType1Property1', 'SubType1Property2'],

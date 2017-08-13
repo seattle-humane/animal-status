@@ -1,8 +1,8 @@
 'use strict';
 
 const mailparser = require('mailparser');
-const csvparse = require('csv-parse');
-const moment = require('moment-timezone');
+const moment = require('moment-timezone')
+const nestedCsvParser = require('./nested-csv-parser');;
 
 // This must be assumed/configured - the source data does not contain offset information
 const inputTimeZone = 'America/Los_Angeles'
@@ -58,22 +58,11 @@ class EmailReceiver {
     }
 
     static translateCsvBufferToJsonObjectsAsync(csvBuffer) {
-        const parseOptions = { columns: EmailReceiver.sanitizeColumnNames }
-
-        return new Promise(function(resolve, reject) {
-            return csvparse(csvBuffer, parseOptions, function (err, output) {
-                if (err) { reject(err); }
-                resolve(output);
-            });
-        });
+        return nestedCsvParser.parseAsync(csvBuffer, {mapHeaders: EmailReceiver.sanitizeColumnName});
     }
 
-    static sanitizeColumnNames(columnNames) {
-        return columnNames.map(EmailReceiver.sanitizeColumnName);
-    }
-
-    static sanitizeColumnName(columnName) {
-        return columnName
+    static sanitizeColumnName(name) {
+        return name
             .replace(/#/g, "Id")
             .replace(/ of /, ' Of ')
             .replace(/ /g, "")

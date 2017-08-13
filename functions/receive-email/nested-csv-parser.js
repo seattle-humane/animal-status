@@ -61,10 +61,10 @@ function stringToStream(str) {
 }
 
 class NestedCsvParser {
-    static subTypeToPropertyMap(headers) {
+    static subTypeToPropertyMap(headers, mapHeadersFn) {
         var map = new Object();
         for (var headerIndex in headers) {
-            var header = headers[headerIndex];
+            var header = mapHeadersFn(headers[headerIndex]);
             if (header === '__RowSubType') { continue; }
 
             var splitHeader = header.split(':');
@@ -83,7 +83,7 @@ class NestedCsvParser {
         return map;
     }
 
-    static parseAsync(csvBufferOrString) {
+    static parseAsync(csvBufferOrString, csvParserConfig = {}) {
         return new Promise(function(resolve, reject) {
             try {
                 var inputStream = stringToStream(csvBufferOrString);
@@ -91,14 +91,15 @@ class NestedCsvParser {
                 var subTypeToPropertyMap = null;
                 var allObjects = [];
                 var currentObject = null;
-
+                
+                var innerCsvParser = csv(csvParserConfig);
                 inputStream
-                    .pipe(csv())
+                    .pipe(innerCsvParser)
                     .on('headers', function(headers) {
                         if (!headers.includes('__RowSubType')) {
                             throw new Error('Invalid CSV headers - must have a __RowSubType column to be parsed as a nested CSV. Instead, got headers: ' + JSON.stringify(headers));
                         }
-                        subTypeToPropertyMap = NestedCsvParser.subTypeToPropertyMap(headers);
+                        subTypeToPropertyMap = NestedCsvParser.subTypeToPropertyMap(headers, innerCsvParser.mapHeaders);
                     })
                     .on('data', function (data) {
                         var subType = data.__RowSubType;
