@@ -87,7 +87,6 @@ class NestedCsvParser {
         return new Promise(function(resolve, reject) {
             try {
                 var mapValue = csvParserConfig.mapValue || (x => x);
-                
                 var inputStream = stringToStream(csvBufferOrString);
 
                 var subTypeToPropertyMap = null;

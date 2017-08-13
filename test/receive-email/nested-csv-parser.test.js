@@ -69,3 +69,100 @@ test('subTypeToPropertyMap correctly groups example headers', () => {
             'SubType2': ['SubType2Property1']
         });
 });
+
+test('parseAsync handles quoted multiline values correctly', () => {
+    var inputCsv =
+`__RowSubType,BaseProperty,SubType:SubTypeProperty
+,"Some multi-line
+text in BaseProperty",
+SubType,,"Some more multi-line
+text in SubTypeProperty"`;
+
+    var expectedOutput = [{BaseProperty:`Some multi-line
+text in BaseProperty`, SubType: [{SubTypeProperty: `Some more multi-line
+text in SubTypeProperty`}]}];
+
+    return expect(nestedCsvParser.parseAsync(inputCsv))
+        .resolves.toEqual(expectedOutput);
+});
+
+test('parseAsync translates headers with mapHeaders config property', () => {
+    var inputCsv =
+`__RowSubType,BaseFoo,SubType:SubTypeFoo
+,x,
+SubType,,x`;
+
+    var fooToBarHeaderMapper = (header => header.replace('Foo', 'Bar'))
+
+    var expectedOutput = [{
+        BaseBar: 'x',
+        SubType: [{
+            SubTypeBar: 'x'
+        }] 
+    }];
+
+    return expect(nestedCsvParser.parseAsync(inputCsv, { mapHeaders: fooToBarHeaderMapper}))
+        .resolves.toEqual(expectedOutput);
+});
+
+test('parseAsync translates values with mapValue config property', () => {
+    var inputCsv =
+        `__RowSubType,BaseProperty,SubType:SubTypeProperty
+,Foo,
+SubType,,Foo`;
+
+    var fooToBarValueMapper = (value => value.replace('Foo', 'Bar'))
+
+    var expectedOutput = [{
+        BaseProperty: 'Bar',
+        SubType: [{
+            SubTypeProperty: 'Bar'
+        }]
+    }];
+
+    return expect(nestedCsvParser.parseAsync(inputCsv, { mapValue: fooToBarValueMapper }))
+        .resolves.toEqual(expectedOutput);
+});
+
+test('parseAsync provides mapValue with property names that have already passed through mapHeaders', () => {
+    var inputCsv =
+`__RowSubType,BaseFoo,SubType:SubTypeFoo
+,x,
+SubType,,x`;
+
+    var fooToBarHeaderMapper = (header => header.replace('Foo', 'Bar'))
+    var appendHeaderNameValueMapper = ((value, header) => (value + header));
+
+    var expectedOutput = [{
+        BaseBar: 'xBaseBar', // not xBaseFoo
+        SubType: [{
+            SubTypeBar: 'xSubTypeBar' // not xSubTypeFoo
+        }] 
+    }];
+
+    return expect(nestedCsvParser.parseAsync(inputCsv, {
+        mapHeaders: fooToBarHeaderMapper,
+        mapValue: appendHeaderNameValueMapper
+    })).resolves.toEqual(expectedOutput);
+});
+
+test('parseAsync omits values that mapValue returns null for', () => {
+    var inputCsv =
+        `__RowSubType,BaseProperty1,BaseProperty2,SubType:SubTypeProperty1,SubType:SubTypeProperty2
+,Foo,Bar,,
+SubType,,,Foo,Baz`;
+
+    var fooToNullValueMapper = (value => (value === 'Foo') ? null : value);
+
+    var expectedOutput = [{
+        // BaseProperty1: 'Foo'/null, <-- should be omitted
+        BaseProperty2: 'Bar',
+        SubType: [{
+            // SubTypeProperty1: 'Foo'/null <-- should be omitted
+            SubTypeProperty2: 'Baz'
+        }]
+    }];
+
+    return expect(nestedCsvParser.parseAsync(inputCsv, { mapValue: fooToNullValueMapper }))
+        .resolves.toEqual(expectedOutput);
+});
