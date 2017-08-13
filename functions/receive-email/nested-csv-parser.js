@@ -51,14 +51,7 @@
 */
 
 const csv = require('csv-parser');
-const stream = require('stream');
-
-function stringToStream(str) {
-    var readableStream = new stream.Readable;
-    readableStream.push(str);
-    readableStream.push(null); // acts as fake EOF
-    return readableStream;
-}
+const intoStream = require('into-stream');
 
 class NestedCsvParser {
     static subTypeToPropertyMap(headers, mapHeadersFn) {
@@ -86,8 +79,12 @@ class NestedCsvParser {
     static parseAsync(csvBufferOrString, csvParserConfig = {}) {
         return new Promise(function(resolve, reject) {
             try {
+                if (typeof csvBufferOrString !== 'string' && !Buffer.isBuffer(csvBufferOrString)) {
+                    throw new Error('Invalid input type on csvBufferOrString');
+                }
+                var inputStream = intoStream(csvBufferOrString);
+
                 var mapValue = csvParserConfig.mapValue || (x => x);
-                var inputStream = stringToStream(csvBufferOrString);
 
                 var subTypeToPropertyMap = null;
                 var allObjects = [];
