@@ -37,9 +37,6 @@ class EmailReceiver {
     }
 
     dynamoBatchWriteAsync(requestParams) {
-        console.log('dynamoBatchWrite called with:')
-        EmailReceiver.logObject(requestParams);
-
         return this.dynamodbDocumentClient.batchWrite(requestParams).promise();
     }
 
@@ -141,6 +138,7 @@ class EmailReceiver {
     }
 
     static translateObjectsToDynamoRequest(tableName, objects) {
+        console.log("Forming Dynamo PUT request(s) to table " + tableName + " for " + objects.length + " object(s)");
         var params = { RequestItems: { } };
 
         params.RequestItems[tableName] = objects.map(o => {
