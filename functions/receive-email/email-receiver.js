@@ -7,13 +7,9 @@ const moment = require('moment-timezone');
 // This must be assumed/configured - the source data does not contain offset information
 const inputTimeZone = 'America/Los_Angeles'
 
-const MAX_DYANMO_BATCH_WRITE_SIZE = 25;
+const TABLE_NAME = 'Animals'
 
-// DynamoDB doesn't allow string attributes to have empty values, but we want
-// to be able to distinguish between entries where we haven't ingested a value
-// and entries where we've ingested an empty value, so we use this wherever our
-// input data has an empty string.
-const EMPTY_STRING_PLACEHOLDER = ':::EMPTY_STRING_DYNAMODB_WORKAROUND:::'
+const MAX_DYANMO_BATCH_WRITE_SIZE = 25;
 
 class EmailReceiver {
     constructor(s3, s3bucketName, dynamodbDocumentClient) {
@@ -23,18 +19,15 @@ class EmailReceiver {
     }
 
     handleEmailNotification(sesNotification) {
-        var tableName = EmailReceiver.inferTableNameFromEmailSubject(sesNotification.mail.commonHeaders.subject);
-
         return this.s3GetObjectAsync(sesNotification.mail.messageId)
             .then(EmailReceiver.extractRawEmailBufferFromS3Object)
             .then(EmailReceiver.extractCsvBufferFromRawEmailBufferAsync)
-            .then(EmailReceiver.translateCsvBufferToJsonObjectsAsync)
+            .then(EmailReceiver.translateCsvBufferToNestedJsonObjectsAsync)
             .then(EmailReceiver.sanitizeDateTimeProperties)
             .then(EmailReceiver.sanitizeEmptyStringValues)
-            .then(EmailReceiver.injectDerivedObjectProperties)
             .then((objects) => EmailReceiver.injectConstantProperties(
                 {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
-            .then((objects) => EmailReceiver.translateObjectsToDynamoRequests(tableName, objects))
+            .then(EmailReceiver.translateObjectsToDynamoRequests)
             .then(this.dynamoBatchWriteRequestsAsync.bind(this));
     }
 
@@ -51,23 +44,6 @@ class EmailReceiver {
 
     dynamoBatchWriteAsync(singleRequestParam) {
         return this.dynamodbDocumentClient.batchWrite(singleRequestParam).promise();
-    }
-
-    static inferTableNameFromEmailSubject(subject) {
-        if (subject.search(/AnimalMemos/) != -1) {
-            return "AnimalMemos";
-        } else if (subject.search(/AnimalHolds/) != -1) {
-            return "AnimalHolds";
-        } else if (subject.search(/AnimalBehaviorTests/) != -1) {
-            return "AnimalBehaviorTests";
-        } else if (subject.search(/AnimalPetIds/) != -1) {
-            return "AnimalPetIds";
-        } else if (subject.search(/Animals/) != -1) {
-            // Important that this is last
-            return "Animals";
-        } else {
-            throw new Error("Could not infer table name from subject " + subject);
-        }
     }
 
     static extractRawEmailBufferFromS3Object(s3Object) {
@@ -99,6 +75,7 @@ class EmailReceiver {
     static sanitizeColumnName(columnName) {
         return columnName
             .replace(/#/g, "Id")
+            .replace(/ of /, ' Of ')
             .replace(/ /g, "")
             .replace(/\//g, "")
             .replace(/\(login\)/g, "")
@@ -113,7 +90,7 @@ class EmailReceiver {
     }
 
     static sanitizeDateTimeProperties(allObjects) {
-        const dateTimePropertyNameRegex = /DateTime$/
+        const dateTimePropertyNameRegex = /(DateTime|DateOfBirth)$/
         return allObjects.map((originalObject) => {
             const newObject = clone(originalObject);
             for (var propertyName in newObject) {
@@ -125,34 +102,16 @@ class EmailReceiver {
         });
     }
 
+    // DynamoDB doesn't allow empty string attributes - they can either be dropped
+    // or replaced with a placeholder. We arbitrarily choose the former.
     static sanitizeEmptyStringValues(allObjects) {
         return allObjects.map((originalObject) => {
             const newObject = clone(originalObject);
             for (var propertyName in newObject) {
                 if (newObject[propertyName] === '') {
-                    newObject[propertyName] = EMPTY_STRING_PLACEHOLDER;
+                    delete newObject[propertyName];
                 }
             }
-            return newObject;
-        });
-    }
-
-    // This is for DynamoDB's benefit, where we want to make an index based on more than 2 properties
-    static injectDerivedObjectProperties(allObjects) {
-        const derivedPropertyDefinitions = [
-            { basePropertyNames: ['BehaviorCategory', 'BehaviorTest'] }
-        ];
-
-        return allObjects.map((originalObject) => {
-            const newObject = clone(originalObject);
-            derivedPropertyDefinitions.forEach((derivedPropertyDefinition) => {
-                const basePropertyNames = derivedPropertyDefinition.basePropertyNames;
-                if (basePropertyNames.every((baseProperty) => newObject.hasOwnProperty(baseProperty))) {
-                    const derivedPropertyName = basePropertyNames.join('-');
-                    const derivedPropertyValue = basePropertyNames.map(prop => newObject[prop]).join('-');
-                    newObject[derivedPropertyName] = derivedPropertyValue;
-                }
-            });
             return newObject;
         });
     }
@@ -162,12 +121,12 @@ class EmailReceiver {
             Object.assign(clone(originalObject), constantProperties));
     }
 
-    static translateObjectsToDynamoRequests(tableName, objects) {
+    static translateObjectsToDynamoRequests(objects) {
         var objectPages = EmailReceiver.paginateArray(objects, MAX_DYANMO_BATCH_WRITE_SIZE);
 
-        console.log("Forming " + objectPages.length + " Dynamo batchWrite request(s) to table " + tableName + " for " + objects.length + " object(s)");
+        console.log("Forming " + objectPages.length + " Dynamo batchWrite request(s) to table " + TABLE_NAME + " for " + objects.length + " object(s)");
 
-        return objectPages.map(page => EmailReceiver.translatePrePagedObjectsToDynamoRequest(tableName, page));
+        return objectPages.map(page => EmailReceiver.translatePrePagedObjectsToDynamoRequest(TABLE_NAME, page));
     }
 
     static translatePrePagedObjectsToDynamoRequest(tableName, prePagedObjects) {

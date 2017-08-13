@@ -5,42 +5,6 @@ const path = require('path');
 
 const emailReceiver = require('../../functions/receive-email/email-receiver')
 
-test('inferTableNameFromEmailSubject infers Animals table for corresponding subject', () => {
-    expect(emailReceiver.inferTableNameFromEmailSubject(
-        'Report animal-status data export - Animals has been completed.'
-    )).toBe('Animals');
-});
-
-test('inferTableNameFromEmailSubject infers AnimalMemos table for corresponding subject', () => {
-    expect(emailReceiver.inferTableNameFromEmailSubject(
-        'Report animal-status data export - AnimalMemos has been completed.'
-    )).toBe('AnimalMemos');
-});
-
-test('inferTableNameFromEmailSubject infers AnimalHolds table for corresponding subject', () => {
-    expect(emailReceiver.inferTableNameFromEmailSubject(
-        'Report animal-status data export - AnimalHolds has been completed.'
-    )).toBe('AnimalHolds');
-});
-
-test('inferTableNameFromEmailSubject infers AnimalBehaviorTests table for corresponding subject', () => {
-    expect(emailReceiver.inferTableNameFromEmailSubject(
-        'Report animal-status data export - AnimalBehaviorTests has been completed.'
-    )).toBe('AnimalBehaviorTests');
-});
-
-test('inferTableNameFromEmailSubject infers AnimalPetIds table for corresponding subject', () => {
-    expect(emailReceiver.inferTableNameFromEmailSubject(
-        'Report animal-status data export - AnimalPetIds has been completed.'
-    )).toBe('AnimalPetIds');
-});
-
-test('inferTableNameFromEmailSubject throws an Error for an unrecognized subject', () => {
-    expect(() => emailReceiver.inferTableNameFromEmailSubject(
-        'Report animal-status data export - GarbageTableName has been completed.'
-    )).toThrow();
-});
-
 test('extractRawEmailBufferFromS3Object extracts Body', () => {
     var sampleBodyBuffer = Buffer.alloc(20, "1");
     var sampleS3Object = { Body: sampleBodyBuffer };
@@ -80,19 +44,33 @@ test('translateCsvBufferToJsonObjects calls sanitizeColumnName', () => {
 test('sanitizeColumnName sanitizes real example inputs as expected', () => {
     expect(emailReceiver.sanitizeColumnName('Animal #')).toEqual('AnimalId');
     expect(emailReceiver.sanitizeColumnName('Last Updated Date/Time')).toEqual('LastUpdatedDateTime');
+    expect(emailReceiver.sanitizeColumnName('Created Date/Time')).toEqual('CreatedDateTime');
     expect(emailReceiver.sanitizeColumnName('Review Date')).toEqual('ReviewDateTime');
     expect(emailReceiver.sanitizeColumnName('Memo By (login)')).toEqual('MemoBy');
     expect(emailReceiver.sanitizeColumnName('Pet ID Number')).toEqual('PetIdNumber');
     expect(emailReceiver.sanitizeColumnName('Sub-location')).toEqual('SubLocation');
+    expect(emailReceiver.sanitizeColumnName('Date of Birth')).toEqual('DateOfBirth');
 });
 
 test('sanitizeDateTime converts from original format to ISO8601', () => {
     expect(emailReceiver.sanitizeDateTime('2/4/2010 12:00 AM')).toEqual('2010-02-04T08:00:00Z');
 });
 
+test('sanitizeDateTime preserves minutes', () => {
+    expect(emailReceiver.sanitizeDateTime('8/12/2017 11:56 AM')).toMatch(/:56:00Z$/);
+});
+
 test('sanitizeDateTimeProperties invokes sanitizeDateTime on the expected values', () => {
     expect(emailReceiver.sanitizeDateTimeProperties([{ CreatedDateTime: '2/4/2010 12:00 AM' }]))
         .toEqual([{ CreatedDateTime: '2010-02-04T08:00:00Z' }]);
+
+    expect(emailReceiver.sanitizeDateTimeProperties([{ DateOfBirth: '2/4/2010 12:00 AM' }]))
+        .toEqual([{ DateOfBirth: '2010-02-04T08:00:00Z' }]);
+});
+
+test('sanitizeDateTimeProperties does not invoke sanitizeDateTime on non-date values', () => {
+    expect(emailReceiver.sanitizeDateTimeProperties([{ SomeNonDateString: 'foo' }]))
+        .toEqual([{ SomeNonDateString: 'foo' }]);
 });
 
 test('sanitizeEmptyStringValues ignores non-string properties', () => {
@@ -105,19 +83,9 @@ test('sanitizeEmptyStringValues ignores non-empty string properties', () => {
         .toEqual([{ nonemptystring: '1' }]);
 });
 
-test('sanitizeEmptyStringValues replaces empty string properties with a placeholder', () => {
+test('sanitizeEmptyStringValues removes empty string properties', () => {
     expect(emailReceiver.sanitizeEmptyStringValues([{ emptystring: '' }]))
-        .toEqual([{ emptystring: ':::EMPTY_STRING_DYNAMODB_WORKAROUND:::' }]);
-});
-
-test('injectDerivedObjectProperties injects a BehaviorCategory-BehaviorTest property', () => {
-    expect(emailReceiver.injectDerivedObjectProperties([{BehaviorCategory: 'foo', BehaviorTest: 'bar'}]))
-        .toEqual([{ BehaviorCategory: 'foo', BehaviorTest: 'bar', 'BehaviorCategory-BehaviorTest':'foo-bar' }]);
-});
-
-test('injectDerivedObjectProperties noops for objects that dont need derived properties', () => {
-    expect(emailReceiver.injectDerivedObjectProperties([{ Foo: 'foo', Bar: 'bar' }]))
-        .toEqual([{ Foo: 'foo', Bar: 'bar'}]);
+        .toEqual([{ }]);
 });
 
 test('injectConstantProperties merges constant properties into input objects', () => {
@@ -134,42 +102,42 @@ function SomeDynamoCapableObject() { return { LastIngestedDateTime: "2017-08-13T
 
 test('translateObjectsToDynamoRequests creates one batchwrite request per 25 input objects', () => {
     expect(
-        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+        emailReceiver.translateObjectsToDynamoRequests(
             Array.from(new Array(25), SomeDynamoCapableObject)))
         .toHaveLength(1);
         
     expect(
-        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+        emailReceiver.translateObjectsToDynamoRequests(
             Array.from(new Array(26), SomeDynamoCapableObject)))
         .toHaveLength(2);
     
     expect(
-        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+        emailReceiver.translateObjectsToDynamoRequests(
             Array.from(new Array(51), SomeDynamoCapableObject)))
         .toHaveLength(3);
 });
 
 test('translateObjectsToDynamoRequests creates one PUT request item per input object', () => {
     expect(
-        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+        emailReceiver.translateObjectsToDynamoRequests(
             [SomeDynamoCapableObject(), SomeDynamoCapableObject(), SomeDynamoCapableObject()])
-            [0].RequestItems['TestTable'])
+            [0].RequestItems['Animals'])
         .toHaveLength(3);
 });
 
 test('translateObjectsToDynamoRequests fails informatively if input object is missing required property LastIngestedDateTime', () => {
     expect(
-        () => emailReceiver.translateObjectsToDynamoRequests('TestTable', [ { } ]))
+        () => emailReceiver.translateObjectsToDynamoRequests([ { } ]))
         .toThrowError(/LastIngestedDateTime/);
 });
 
 test('translateObjectsToDynamoRequests translates objects to correct conditional PutRequest', () => {
     expect(
-        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+        emailReceiver.translateObjectsToDynamoRequests(
             [{ id: 1, LastIngestedDateTime: '2017-08-13T01:58:56.622Z' }]))
         .toEqual([{
             RequestItems: {
-                'TestTable': [
+                'Animals': [
                     {
                         PutRequest: {
                             Item: { id: 1, LastIngestedDateTime: '2017-08-13T01:58:56.622Z' },
