@@ -1,5 +1,5 @@
 /*
-  Given a Buffer containing the contents of a CSV file of the following form:
+  Given a Buffer or string containing the contents of a CSV file of the following form:
 
   __RowSubType, IdProperty   , BaseProperty1, SubType1:P1, SubType1:P2, SubType2:P1, SubType2:P2
               , 1            , BP1_A        ,            ,            ,            ,            
@@ -14,12 +14,12 @@
 
   [
       {
-          IdProperty: 1,
+          IdProperty: '1',
           BaseProperty1: 'BP1_A',
           SubType1: [
               {
                   P1: 'ST1P1_A',
-                  P2: 'ST1P2:A'
+                  P2: 'ST1P2_A'
               },
               {
                   P1: 'ST1P1_B',
@@ -38,7 +38,7 @@
           ]
       },
       {
-          IdProperty: 2,
+          IdProperty: '2',
           BaseProperty1: 'BP1_C',
           SubType2: [
               {
@@ -50,17 +50,86 @@
   ]
 */
 
-const csvparse = require('csv-parse');
+const csv = require('csv-parser');
+const stream = require('stream');
 
-
-
-module.exports = function (csvBuffer) {
-    const parseOptions = { columns: EmailReceiver.sanitizeColumnNames }
-
-    return new Promise(function (resolve, reject) {
-        return csvparse(csvBuffer, parseOptions, function (err, output) {
-            if (err) { reject(err); }
-            resolve(output);
-        });
-    });
+function stringToStream(str) {
+    var readableStream = new stream.Readable;
+    readableStream.push(str);
+    readableStream.push(null); // acts as fake EOF
+    return readableStream;
 }
+
+class NestedCsvParser {
+    static subTypeToPropertyMap(headers) {
+        var map = new Object();
+        for (var headerIndex in headers) {
+            var header = headers[headerIndex];
+            if (header === '__RowSubType') { continue; }
+
+            var splitHeader = header.split(':');
+            if (splitHeader.length > 2) {
+                throw new Error(`Can't parse header ${header}, contains multiple ':'s`);
+            }
+
+            var subType = (splitHeader.length === 1) ? '' : splitHeader[0];
+            var propertyName = (subType === '') ? splitHeader[0] : splitHeader[1];
+
+            if (!map.hasOwnProperty(subType)) {
+                map[subType] = [];
+            }
+            map[subType].push(propertyName);
+        }
+        return map;
+    }
+
+    static parseAsync(csvBufferOrString) {
+        return new Promise(function(resolve, reject) {
+            try {
+                var inputStream = stringToStream(csvBufferOrString);
+
+                var subTypeToPropertyMap = null;
+                var allObjects = [];
+                var currentObject = null;
+
+                inputStream
+                    .pipe(csv())
+                    .on('headers', function(headers) {
+                        if (!headers.includes('__RowSubType')) {
+                            throw new Error('Invalid CSV headers - must have a __RowSubType column to be parsed as a nested CSV. Instead, got headers: ' + JSON.stringify(headers));
+                        }
+                        subTypeToPropertyMap = NestedCsvParser.subTypeToPropertyMap(headers);
+                    })
+                    .on('data', function (data) {
+                        var subType = data.__RowSubType;
+                        var properties = subTypeToPropertyMap[subType];
+                        if (subType === '') {
+                            currentObject = new Object();
+                            for(var i in properties) {
+                                currentObject[properties[i]] = data[properties[i]];
+                            }
+                            allObjects.push(currentObject);
+                        } else {
+                            var subTypePrefix = subType + ':';
+                            var subTypeObject = new Object();
+
+                            if(!currentObject.hasOwnProperty(subType)) {
+                                currentObject[subType] = [subTypeObject];
+                            } else {
+                                currentObject[subType].push(subTypeObject);
+                            }
+                            
+                            for(var i in properties) {
+                                subTypeObject[properties[i]] = data[subTypePrefix + properties[i]];
+                            }
+                        }
+                    })
+                    .on('end', function () {
+                        resolve(allObjects);
+                    })
+            } catch(e) { reject(e); }
+        });
+    }
+}
+
+module.exports = NestedCsvParser;

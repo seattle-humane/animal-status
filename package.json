@@ -5,7 +5,7 @@
   "repository": "https://github.com/seattle-humane/animal-status",
   "main": "functions/receiveemail.js",
   "dependencies": {
-    "csv-parse": "^1.2.1",
+    "csv-parser": "^1.11.0",
     "mailparser": "^2.0.5",
     "moment-timezone": "^0.5.13"
   },
