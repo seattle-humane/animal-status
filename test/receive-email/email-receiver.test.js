@@ -115,32 +115,71 @@ test('injectConstantProperties merges constant properties into input objects', (
         ]);
 });
 
-function SomeDynamoCapableObject() { return { LastInjestedDateTime: "" } }
+function SomeDynamoCapableObject() { return { LastIngestedDateTime: "2017-08-13T01:58:56.622Z" } }
 
-test('translateObjectsToDynamoRequest creates one request item per input object', () => {
+test('translateObjectsToDynamoRequests creates one batchwrite request per 25 input objects', () => {
     expect(
-        emailReceiver.translateObjectsToDynamoRequest('TestTable',
-            [SomeDynamoCapableObject(), SomeDynamoCapableObject(), SomeDynamoCapableObject()])
-            .RequestItems['TestTable'])
+        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+            Array.from(new Array(25), SomeDynamoCapableObject)))
+        .toHaveLength(1);
+        
+    expect(
+        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+            Array.from(new Array(26), SomeDynamoCapableObject)))
+        .toHaveLength(2);
+    
+    expect(
+        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+            Array.from(new Array(51), SomeDynamoCapableObject)))
         .toHaveLength(3);
 });
 
-test('translateObjectsToDynamoRequest translates objects to correct conditional PutRequest', () => {
+test('translateObjectsToDynamoRequests creates one PUT request item per input object', () => {
     expect(
-        emailReceiver.translateObjectsToDynamoRequest('TestTable',
-            [{ id: 1, LastIngestedDateTime: '2010-02-04T08:00:00Z' }]))
-        .toEqual({
+        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+            [SomeDynamoCapableObject(), SomeDynamoCapableObject(), SomeDynamoCapableObject()])
+            [0].RequestItems['TestTable'])
+        .toHaveLength(3);
+});
+
+test('translateObjectsToDynamoRequests fails informatively if input object is missing required property LastIngestedDateTime', () => {
+    expect(
+        () => emailReceiver.translateObjectsToDynamoRequests('TestTable', [ { } ]))
+        .toThrowError(/LastIngestedDateTime/);
+});
+
+test('translateObjectsToDynamoRequests translates objects to correct conditional PutRequest', () => {
+    expect(
+        emailReceiver.translateObjectsToDynamoRequests('TestTable',
+            [{ id: 1, LastIngestedDateTime: '2017-08-13T01:58:56.622Z' }]))
+        .toEqual([{
             RequestItems: {
                 'TestTable': [
                     {
                         PutRequest: {
-                            Item: { id: 1, LastIngestedDateTime: '2010-02-04T08:00:00Z' },
+                            Item: { id: 1, LastIngestedDateTime: '2017-08-13T01:58:56.622Z' },
                             ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
                             ExpressionAttributeNames: { '#OldIngestedDateTime': 'LastIngestedDateTime' },
-                            ExpressionAttributeValues: { ':NewIngestedDateTime': '2010-02-04T08:00:00Z' }
+                            ExpressionAttributeValues: { ':NewIngestedDateTime': '2017-08-13T01:58:56.622Z' }
                         }
                     }
                 ]
             }
-        });
+        }]);
+});
+
+test('paginateArray produces one array on input that fits in page size', () => {
+    expect(emailReceiver.paginateArray([], 1)).toEqual([]);
+    expect(emailReceiver.paginateArray([1, 2, 3], 3)).toEqual([[1, 2, 3]]);
+});
+
+test('paginateArray splits arrays that are multiples of page size into that many pages', () => {
+    expect(emailReceiver.paginateArray([1, 2], 1)).toEqual([[1], [2]]);
+    expect(emailReceiver.paginateArray([1, 2, 3], 1)).toEqual([[1], [2], [3]]);
+    expect(emailReceiver.paginateArray([1, 2, 3, 4], 2)).toEqual([[1, 2], [3, 4]]);
+});
+
+test('paginateArray splits arrays that are not multiples of page size with one smaller array at end for leftovers', () => {
+    expect(emailReceiver.paginateArray([1, 2, 3], 2)).toEqual([[1, 2], [3]]);
+    expect(emailReceiver.paginateArray([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
 });

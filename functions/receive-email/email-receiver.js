@@ -25,8 +25,8 @@ class EmailReceiver {
             .then(EmailReceiver.injectDerivedObjectProperties)
             .then((objects) => EmailReceiver.injectConstantProperties(
                 {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
-            .then((objects) => EmailReceiver.translateObjectsToDynamoRequest(tableName, objects))
-            .then(this.dynamoBatchWriteAsync.bind(this));
+            .then((objects) => EmailReceiver.translateObjectsToDynamoRequests(tableName, objects))
+            .then(this.dynamoBatchWriteRequestsAsync.bind(this));
     }
 
     s3GetObjectAsync(objectKey) {
@@ -36,8 +36,12 @@ class EmailReceiver {
         }).promise();
     }
 
-    dynamoBatchWriteAsync(requestParams) {
-        return this.dynamodbDocumentClient.batchWrite(requestParams).promise();
+    dynamoBatchWriteRequestsAsync(requestParams) {
+        return Promise.all(requestParams.map(this.dynamoBatchWriteAsync.bind(this)))
+    }
+
+    dynamoBatchWriteAsync(singleRequestParam) {
+        return this.dynamodbDocumentClient.batchWrite(singleRequestParam).promise();
     }
 
     static inferTableNameFromEmailSubject(subject) {
@@ -137,11 +141,21 @@ class EmailReceiver {
             Object.assign(clone(originalObject), constantProperties));
     }
 
-    static translateObjectsToDynamoRequest(tableName, objects) {
-        console.log("Forming Dynamo PUT request(s) to table " + tableName + " for " + objects.length + " object(s)");
-        var params = { RequestItems: { } };
+    static translateObjectsToDynamoRequests(tableName, objects) {
+        const MAX_DYANMO_BATCH_WRITE_SIZE = 25;
+        var objectPages = EmailReceiver.paginateArray(objects, MAX_DYANMO_BATCH_WRITE_SIZE);
 
-        params.RequestItems[tableName] = objects.map(o => {
+        console.log("Forming " + objectPages.length + " Dynamo batchWrite request(s) to table " + tableName + " for " + objects.length + " object(s)");
+
+        return objectPages.map(page => EmailReceiver.translatePrePagedObjectsToDynamoRequest(tableName, page));
+    }
+
+    static translatePrePagedObjectsToDynamoRequest(tableName, prePagedObjects) {
+        var params = { RequestItems: { } };
+        params.RequestItems[tableName] = prePagedObjects.map(o => {
+            if (typeof o.LastIngestedDateTime !== 'string' || o.LastIngestedDateTime.length === 0) {
+                throw new Error("Logic error: attempting to PUT object without valid LastIngestedDateTime: " + JSON.stringify(o, null, 2));
+            }
             return { PutRequest: {
                 Item: o,
                 ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
@@ -149,8 +163,16 @@ class EmailReceiver {
                 ExpressionAttributeValues: { ':NewIngestedDateTime': o.LastIngestedDateTime }
             } };
         });
-
         return params;
+    }
+
+    // paginateArray([1, 2, 3, 4, 5], 2) => [[1, 2], [3, 4], [5]]
+    static paginateArray(array, pageSize) {
+        var pages = [];
+        for(var pageIndex = 0; pageIndex * pageSize < array.length; pageIndex++) {
+            pages.push(array.slice(pageIndex * pageSize, Math.min(array.length, (pageIndex + 1) * pageSize)))
+        }
+        return pages;
     }
 
     static logObject(object) {
