@@ -72,7 +72,7 @@ class EmailReceiver {
     }
 
     static translateCsvBufferToJsonObjectsAsync(csvBuffer) {
-        const parseOptions = { columns: this.sanitizeColumnNames.bind(this) }
+        const parseOptions = { columns: EmailReceiver.sanitizeColumnNames }
 
         return new Promise(function(resolve, reject) {
             return csvparse(csvBuffer, parseOptions, function (err, output) {
@@ -83,7 +83,7 @@ class EmailReceiver {
     }
 
     static sanitizeColumnNames(columnNames) {
-        return columnNames.map(this.sanitizeColumnName);
+        return columnNames.map(EmailReceiver.sanitizeColumnName);
     }
 
     static sanitizeColumnName(columnName) {
@@ -108,7 +108,7 @@ class EmailReceiver {
             const newObject = clone(originalObject);
             for (var propertyName in newObject) {
                 if (dateTimePropertyNameRegex.test(propertyName)) {
-                    newObject[propertyName] = this.sanitizeDateTime(newObject[propertyName]);
+                    newObject[propertyName] = EmailReceiver.sanitizeDateTime(newObject[propertyName]);
                 }
             }
             return newObject;
