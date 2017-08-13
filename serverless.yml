@@ -16,7 +16,7 @@ package:
 functions:
   receiveemail:
     handler: functions/receive-email/handler.handler
-    memorySize: 128 # About ~32mb of nodejs overhead, the CSV emails are typically ~150kb
+    memorySize: 256 # About ~32mb of nodejs overhead, the CSV emails are typically ~150kb
     timeout: 30
     # serverless doesn't support an email event, so the trigger has to be configured manually. see docs/setup.md
     

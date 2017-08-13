@@ -39,6 +39,7 @@ class EmailReceiver {
     }
 
     dynamoBatchWriteRequestsAsync(requestParams) {
+        console.log('dynamoBatchWriteRequestsAsync');
         return Promise.all(requestParams.map(this.dynamoBatchWriteAsync.bind(this)))
     }
 
@@ -47,17 +48,20 @@ class EmailReceiver {
     }
 
     static extractRawEmailBufferFromS3Object(s3Object) {
+        console.log('extractRawEmailBufferFromS3Object');
         // The s3Object's "Body" refers to the body of the HTTP response from S3, not an email body
         return s3Object.Body;
     }
 
     static extractCsvBufferFromRawEmailBufferAsync(rawEmailBuffer) {
+        console.log('extractCsvBufferFromRawEmailBufferAsync');
         return mailparser
             .simpleParser(rawEmailBuffer)
             .then(email => email.attachments[0].content);
     }
 
     static translateCsvBufferToJsonObjectsAsync(csvBuffer) {
+        console.log('translateCsvBufferToJsonObjectsAsync');
         return nestedCsvParser.parseAsync(csvBuffer, {mapHeaders: EmailReceiver.sanitizeColumnName});
     }
 
@@ -79,6 +83,7 @@ class EmailReceiver {
     }
 
     static sanitizeDateTimeProperties(allObjects) {
+        console.log('sanitizeDateTimeProperties');
         const dateTimePropertyNameRegex = /(DateTime|DateOfBirth)$/
         return allObjects.map((originalObject) => {
             const newObject = clone(originalObject);
@@ -94,6 +99,7 @@ class EmailReceiver {
     // DynamoDB doesn't allow empty string attributes - they can either be dropped
     // or replaced with a placeholder. We arbitrarily choose the former.
     static sanitizeEmptyStringValues(allObjects) {
+        console.log('sanitizeEmptyStringValues');
         return allObjects.map((originalObject) => {
             const newObject = clone(originalObject);
             for (var propertyName in newObject) {
@@ -106,11 +112,13 @@ class EmailReceiver {
     }
 
     static injectConstantProperties(constantProperties, objects) {
+        console.log('injectConstantProperties');
         return objects.map((originalObject) =>
             Object.assign(clone(originalObject), constantProperties));
     }
 
     static translateObjectsToDynamoRequests(objects) {
+        console.log('translateObjectsToDynamoRequests');
         var objectPages = EmailReceiver.paginateArray(objects, MAX_DYANMO_BATCH_WRITE_SIZE);
 
         console.log("Forming " + objectPages.length + " Dynamo batchWrite request(s) to table " + TABLE_NAME + " for " + objects.length + " object(s)");
