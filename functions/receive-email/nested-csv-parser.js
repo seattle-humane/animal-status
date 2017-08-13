@@ -101,6 +101,7 @@ class NestedCsvParser {
                             throw new Error('Invalid CSV headers - must have a __RowSubType column to be parsed as a nested CSV. Instead, got headers: ' + JSON.stringify(headers));
                         }
                         subTypeToPropertyMap = NestedCsvParser.subTypeToPropertyMap(headers, innerCsvParser.mapHeaders);
+                        console.log('Parsed csv row type -> property name mappings: ' + JSON.stringify(subTypeToPropertyMap));
                     })
                     .on('data', function (data) {
                         var subType = data.__RowSubType;
