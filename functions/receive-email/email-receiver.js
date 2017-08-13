@@ -38,7 +38,8 @@ class EmailReceiver {
 
     dynamoBatchWriteRequestsAsync(requestParams) {
         console.log(`dynamoBatchWriteRequestsAsync (${requestParams.length} requests)`);
-        return Promise.all(requestParams.map(this.dynamoBatchWriteAsync.bind(this)))
+        console.log("SKIPPING ACTUAL BATCH WRITES")
+        //return Promise.all(requestParams.map(this.dynamoBatchWriteAsync.bind(this)))
     }
 
     dynamoBatchWriteAsync(singleRequestParam) {
