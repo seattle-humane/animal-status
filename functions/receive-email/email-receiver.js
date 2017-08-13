@@ -23,8 +23,6 @@ class EmailReceiver {
             .then(EmailReceiver.extractRawEmailBufferFromS3Object)
             .then(EmailReceiver.extractCsvBufferFromRawEmailBufferAsync)
             .then(EmailReceiver.translateCsvBufferToNestedJsonObjectsAsync)
-            .then(EmailReceiver.sanitizeDateTimeProperties)
-            .then(EmailReceiver.sanitizeEmptyStringValues)
             .then((objects) => EmailReceiver.injectConstantProperties(
                 {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
             .then(EmailReceiver.translateObjectsToDynamoRequests)
@@ -39,7 +37,7 @@ class EmailReceiver {
     }
 
     dynamoBatchWriteRequestsAsync(requestParams) {
-        console.log('dynamoBatchWriteRequestsAsync');
+        console.log(`dynamoBatchWriteRequestsAsync (${requestParams.length} requests)`);
         return Promise.all(requestParams.map(this.dynamoBatchWriteAsync.bind(this)))
     }
 
@@ -54,14 +52,14 @@ class EmailReceiver {
     }
 
     static extractCsvBufferFromRawEmailBufferAsync(rawEmailBuffer) {
-        console.log('extractCsvBufferFromRawEmailBufferAsync');
+        console.log(`extractCsvBufferFromRawEmailBufferAsync (email buffer length: ${rawEmailBuffer.length})`);
         return mailparser
             .simpleParser(rawEmailBuffer)
             .then(email => email.attachments[0].content);
     }
 
     static translateCsvBufferToJsonObjectsAsync(csvBuffer) {
-        console.log('translateCsvBufferToJsonObjectsAsync');
+        console.log(`translateCsvBufferToJsonObjectsAsync (csv buffer length: ${csvBuffer.length})`);
         return nestedCsvParser.parseAsync(csvBuffer, {
             mapHeaders: EmailReceiver.sanitizeColumnName,
             mapValue: EmailReceiver.sanitizePropertyValue
@@ -101,13 +99,13 @@ class EmailReceiver {
     }
 
     static injectConstantProperties(constantProperties, objects) {
-        console.log('injectConstantProperties');
+        console.log(`injectConstantProperties (${constantProperties.length} props, ${objects.length} objects)`);
         objects.forEach(o => Object.assign(o, constantProperties));
         return objects;
     }
 
     static translateObjectsToDynamoRequests(objects) {
-        console.log('translateObjectsToDynamoRequests');
+        console.log(`translateObjectsToDynamoRequests (${objects.length} objects)`);
         var objectPages = EmailReceiver.paginateArray(objects, MAX_DYANMO_BATCH_WRITE_SIZE);
 
         console.log("Forming " + objectPages.length + " Dynamo batchWrite request(s) to table " + TABLE_NAME + " for " + objects.length + " object(s)");
