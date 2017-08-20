@@ -8,7 +8,8 @@
     "csv-parser": "^1.11.0",
     "into-stream": "^3.1.0",
     "mailparser": "^2.0.5",
-    "moment-timezone": "^0.5.13"
+    "moment-timezone": "^0.5.13",
+    "strip-bom-buf": "^1.0.0"
   },
   "devDependencies": {
     "jest": "^20.0.4"

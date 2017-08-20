@@ -52,7 +52,8 @@ test('extractCsvBufferFromRawEmailBufferAsync correctly translates from email co
     var exampleEmailBuffer = fs.readFileSync(path.join(__dirname, 'example1.single-dog.s3MessageContent.blob'));
     var expectedCsvBuffer = fs.readFileSync(path.join(__dirname, 'example1.single-dog.csv'));
     
-    return expect(emailReceiver.extractCsvBufferFromRawEmailBufferAsync(exampleEmailBuffer))
+    return expect(emailReceiver.parseEmailFromRawBufferAsync(exampleEmailBuffer)
+        .then(emailReceiver.extractCsvAttachmentBufferFromEmail))
         .resolves.toEqual(expectedCsvBuffer);
 });
 

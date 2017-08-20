@@ -101,7 +101,7 @@ class NestedCsvParser {
                         console.log('Parsed csv row type -> property name mappings: ' + JSON.stringify(subTypeToPropertyMap));
                     })
                     .on('data', function (data) {
-                        var subType = data.__RowSubType;
+                        var subType = innerCsvParser.mapHeaders(data.__RowSubType);
                         var properties = subTypeToPropertyMap[subType];
                         if (subType === '') {
                             currentObject = new Object();

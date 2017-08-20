@@ -2,6 +2,8 @@
 
 const mailparser = require('mailparser');
 const moment = require('moment-timezone')
+const stripBomBuf = require('strip-bom-buf');
+
 const nestedCsvParser = require('./nested-csv-parser');;
 
 // This must be assumed/configured - the source data does not contain offset information
@@ -21,8 +23,9 @@ class EmailReceiver {
     handleEmailNotification(sesNotification) {
         return this.s3GetObjectAsync(sesNotification.mail.messageId)
             .then(EmailReceiver.extractRawEmailBufferFromS3Object)
-            .then(EmailReceiver.extractCsvBufferFromRawEmailBufferAsync)
-            .then(EmailReceiver.translateCsvBufferToNestedJsonObjectsAsync)
+            .then(EmailReceiver.parseEmailFromRawBufferAsync)
+            .then(EmailReceiver.extractCsvAttachmentBufferFromEmail)
+            .then(EmailReceiver.translateCsvBufferToJsonObjectsAsync)
             .then((objects) => EmailReceiver.injectConstantProperties(
                 {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
             .then(EmailReceiver.translateObjectsToDynamoRequests)
@@ -38,8 +41,7 @@ class EmailReceiver {
 
     dynamoBatchWriteRequestsAsync(requestParams) {
         console.log(`dynamoBatchWriteRequestsAsync (${requestParams.length} requests)`);
-        console.log("SKIPPING ACTUAL BATCH WRITES")
-        //return Promise.all(requestParams.map(this.dynamoBatchWriteAsync.bind(this)))
+        return Promise.all(requestParams.map(this.dynamoBatchWriteAsync.bind(this)))
     }
 
     dynamoBatchWriteAsync(singleRequestParam) {
@@ -52,11 +54,13 @@ class EmailReceiver {
         return s3Object.Body;
     }
 
-    static extractCsvBufferFromRawEmailBufferAsync(rawEmailBuffer) {
-        console.log(`extractCsvBufferFromRawEmailBufferAsync (email buffer length: ${rawEmailBuffer.length})`);
-        return mailparser
-            .simpleParser(rawEmailBuffer)
-            .then(email => email.attachments[0].content);
+    static parseEmailFromRawBufferAsync(rawEmailBuffer) {
+        console.log(`parseEmailFromRawBufferAsync (email buffer length: ${rawEmailBuffer.length})`);
+        return mailparser.simpleParser(rawEmailBuffer)
+    }
+
+    static extractCsvAttachmentBufferFromEmail(parsedEmail) {
+        return stripBomBuf(parsedEmail.attachments[0].content);
     }
 
     static translateCsvBufferToJsonObjectsAsync(csvBuffer) {
@@ -88,7 +92,7 @@ class EmailReceiver {
 
         const dateTimePropertyNameRegex = /(DateTime|DateOfBirth)$/;
         if (dateTimePropertyNameRegex.test(propertyName)) {
-            return sanitizeDateTime(originalValue);
+            return EmailReceiver.sanitizeDateTime(originalValue);
         }
 
         return originalValue;
@@ -138,14 +142,6 @@ class EmailReceiver {
         }
         return pages;
     }
-
-    static logObject(object) {
-        console.log(JSON.stringify(object, null, 2));
-    }
-}
-
-function clone(object) {
-    return JSON.parse(JSON.stringify(object));
 }
 
 module.exports = EmailReceiver;

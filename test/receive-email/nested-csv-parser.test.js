@@ -59,7 +59,7 @@ SubType2    ,              ,              ,            ,            , ST2P1_C   
 });
 
 test('Real example example1.single-dog.csv works end to end', () => {
-    var example1Json = JSON.parse(fs.readFileSync(path.join(__dirname, 'example1.single-dog.parsedCsv.json'), 'utf8'));
+    var example1Json = JSON.parse(fs.readFileSync(path.join(__dirname, 'example1.single-dog.parsedObjectsWithoutSanitizers.json'), 'utf8'));
     var example1CsvBuffer = fs.readFileSync(path.join(__dirname, 'example1.single-dog.csv'));
 
     return expect(nestedCsvParser.parseAsync(example1CsvBuffer))
