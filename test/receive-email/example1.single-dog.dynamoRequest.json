@@ -701,5 +701,7 @@
                 }
             }
         ]
-    }
+    },
+    "ReturnConsumedCapacity": "TOTAL",
+    "ReturnItemCollectionMetrics": "SIZE"
 }

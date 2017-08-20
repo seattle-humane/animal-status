@@ -143,7 +143,9 @@ test('translateObjectsToDynamoRequests translates objects to correct conditional
                         }
                     }
                 ]
-            }
+            },
+            ReturnConsumedCapacity: "TOTAL",
+            ReturnItemCollectionMetrics: "SIZE"
         }]);
 });
 

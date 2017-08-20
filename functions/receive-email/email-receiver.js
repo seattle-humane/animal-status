@@ -45,7 +45,16 @@ class EmailReceiver {
     }
 
     dynamoBatchWriteAsync(singleRequestParam) {
-        return this.dynamodbDocumentClient.batchWrite(singleRequestParam).promise();
+        return this.dynamodbDocumentClient
+            .batchWrite(singleRequestParam).promise()
+            .then(response => {
+                if(reponse.UnprocessedItems.length > 0) {
+                    var unprocessedAnimalIds = response.UnprocessedItems.Animals.map(a => a.AnimalId);
+                    console.log('Unprocessed AnimalIds: ' + JSON.stringify(unprocessedAnimalIds));
+                }
+                console.log(JSON.stringify(response));
+                // TODO: improve logging? make less verbose?
+            });
     }
 
     static extractRawEmailBufferFromS3Object(s3Object) {
@@ -119,7 +128,11 @@ class EmailReceiver {
     }
 
     static translatePrePagedObjectsToDynamoRequest(tableName, prePagedObjects) {
-        var params = { RequestItems: { } };
+        var params = {
+            RequestItems: { },
+            ReturnConsumedCapacity: "TOTAL",
+            ReturnItemCollectionMetrics: "SIZE"
+        };
         params.RequestItems[tableName] = prePagedObjects.map(o => {
             if (typeof o.LastIngestedDateTime !== 'string' || o.LastIngestedDateTime.length === 0) {
                 throw new Error("Logic error: attempting to PUT object without valid LastIngestedDateTime: " + JSON.stringify(o, null, 2));
