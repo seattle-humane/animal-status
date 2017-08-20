@@ -76,6 +76,7 @@ test('sanitizeColumnName sanitizes real example inputs as expected', () => {
     expect(emailReceiver.sanitizeColumnName('Sub-location')).toEqual('SubLocation');
     expect(emailReceiver.sanitizeColumnName('Date of Birth')).toEqual('DateOfBirth');
     expect(emailReceiver.sanitizeColumnName('Expires')).toEqual('ExpiresDateTime');
+    expect(emailReceiver.sanitizeColumnName('Sub-type')).toEqual('SubType');
 });
 
 test('sanitizeDateTime converts from original format to ISO8601', () => {

@@ -88,6 +88,7 @@ class EmailReceiver {
             .replace(/\//g, "")
             .replace(/\(login\)/g, "")
             .replace(/Sub-location/g, "SubLocation")
+            .replace(/Sub-type/g, "SubType")
             .replace(/ID/g, "Id")
             .replace(/Date$/g, "DateTime")
             .replace(/Expires/g, "ExpiresDateTime");

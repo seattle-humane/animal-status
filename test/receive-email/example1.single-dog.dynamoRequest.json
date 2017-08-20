@@ -633,7 +633,7 @@
                 "LengthOwned": "0",
                 "Reason": "Space",
                 "Source": "Unknown",
-                "Sub-type": "From Outside King County"
+                "SubType": "From Outside King County"
             }
         ],
         "AnimalMemo": [
