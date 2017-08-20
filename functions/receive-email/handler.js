@@ -15,7 +15,7 @@ exports.handler = function (event, context, lambda_callback) {
     emailReceiver.handleEmailNotification(sesNotification)
         .then(() => lambda_callback(null, null))
         .catch((err) => {
-            console.log('***Unhandled error*** ' + JSON.stringify(err, null, 2));
+            console.error('***Unhandled error*** ' + JSON.stringify(err, null, 2));
             lambda_callback(err);
         });
 }

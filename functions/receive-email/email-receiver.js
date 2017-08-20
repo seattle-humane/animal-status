@@ -37,26 +37,6 @@ class EmailReceiver {
         }).promise();
     }
 
-    // Note that we intentionally avoid calling dynamo's batchWrite APIs, because
-    // ~300 concurrent writes is fine for our needs and avoiding batchWrite lets us
-    // use the AWS SDK's retry/backoff logic instead of implementing our own.
-    dynamoPutManyAsync(requestParams) {
-        console.log(`dynamoWriteRequestsAsync (${requestParams.length} requests)`);
-        return Promise.all(requestParams.map(this.dynamoPutAsync.bind(this)))
-    }
-
-    dynamoPutAsync(singleRequestParam) {
-        return this.dynamodbDocumentClient
-            .put(singleRequestParam).promise()
-            .then(EmailReceiver.logDynamoPutResponse);
-    }
-
-    static logDynamoPutResponse(response, logger=console.log) {
-        if (!response) return;
-
-        logger(JSON.stringify(response));
-    }
-
     static extractRawEmailBufferFromS3Object(s3Object) {
         console.log('extractRawEmailBufferFromS3Object');
         // The s3Object's "Body" refers to the body of the HTTP response from S3, not an email body
@@ -137,6 +117,28 @@ class EmailReceiver {
             };
         });
     }
+
+    // Note that we intentionally avoid calling dynamo's batchWrite APIs, because
+    // ~300 concurrent writes is fine for our needs and avoiding batchWrite lets us
+    // use the AWS SDK's retry/backoff logic instead of implementing our own.
+    dynamoPutManyAsync(requestParams) {
+        console.log(`dynamoWriteRequestsAsync (${requestParams.length} requests)`);
+        return Promise.all(requestParams.map(this.dynamoPutAsync.bind(this)))
+    }
+
+    dynamoPutAsync(singleRequestParam) {
+        return this.dynamodbDocumentClient
+            .put(singleRequestParam).promise()
+            .then(EmailReceiver.logDynamoPutResponse)
+            .catch(err => { throw Object.assign(err, {triggeringDynamoRequest: singleRequestParam}) });
+    }
+
+    static logDynamoPutResponse(response, logger = console.log) {
+        if (!response) return;
+
+        logger(JSON.stringify(response));
+    }
+
 }
 
 module.exports = EmailReceiver;
