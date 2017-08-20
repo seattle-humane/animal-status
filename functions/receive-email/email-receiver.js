@@ -48,7 +48,7 @@ class EmailReceiver {
         return this.dynamodbDocumentClient
             .batchWrite(singleRequestParam).promise()
             .then(response => {
-                if(reponse.UnprocessedItems.length > 0) {
+                if(response && response.UnprocessedItems.length > 0) {
                     var unprocessedAnimalIds = response.UnprocessedItems.Animals.map(a => a.AnimalId);
                     console.log('Unprocessed AnimalIds: ' + JSON.stringify(unprocessedAnimalIds));
                 }
