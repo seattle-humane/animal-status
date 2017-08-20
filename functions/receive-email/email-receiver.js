@@ -11,8 +11,6 @@ const inputTimeZone = 'America/Los_Angeles'
 
 const TABLE_NAME = 'Animals'
 
-const MAX_DYANMO_BATCH_WRITE_SIZE = 25;
-
 class EmailReceiver {
     constructor(s3, s3bucketName, dynamodbDocumentClient) {
         this.s3 = s3;
@@ -28,8 +26,8 @@ class EmailReceiver {
             .then(EmailReceiver.translateCsvBufferToJsonObjectsAsync)
             .then((objects) => EmailReceiver.injectConstantProperties(
                 {LastIngestedDateTime: sesNotification.mail.timestamp}, objects))
-            .then(EmailReceiver.translateObjectsToDynamoRequests)
-            .then(this.dynamoBatchWriteRequestsAsync.bind(this));
+            .then(EmailReceiver.translateObjectsToDynamoPutRequests)
+            .then(this.dynamoPutManyAsync.bind(this));
     }
 
     s3GetObjectAsync(objectKey) {
@@ -39,29 +37,24 @@ class EmailReceiver {
         }).promise();
     }
 
-    dynamoBatchWriteRequestsAsync(requestParams) {
-        console.log(`dynamoBatchWriteRequestsAsync (${requestParams.length} requests)`);
-        return Promise.all(requestParams.map(this.dynamoBatchWriteAsync.bind(this)))
+    // Note that we intentionally avoid calling dynamo's batchWrite APIs, because
+    // ~300 concurrent writes is fine for our needs and avoiding batchWrite lets us
+    // use the AWS SDK's retry/backoff logic instead of implementing our own.
+    dynamoPutManyAsync(requestParams) {
+        console.log(`dynamoWriteRequestsAsync (${requestParams.length} requests)`);
+        return Promise.all(requestParams.map(this.dynamoPutAsync.bind(this)))
     }
 
-    dynamoBatchWriteAsync(singleRequestParam) {
+    dynamoPutAsync(singleRequestParam) {
         return this.dynamodbDocumentClient
-            .batchWrite(singleRequestParam).promise()
-            .then(EmailReceiver.logDynamoResponse);
+            .put(singleRequestParam).promise()
+            .then(EmailReceiver.logDynamoPutResponse);
     }
 
-    static logDynamoResponse(response, logger=console.log) {
+    static logDynamoPutResponse(response, logger=console.log) {
         if (!response) return;
 
-        if (response.UnprocessedItems.hasOwnProperty('Animals')) {
-            var unprocessedAnimalIds = response.UnprocessedItems.Animals.map(a => a.PutRequest.Item.AnimalId);
-            logger('Unprocessed Animal Count: ' + unprocessedAnimalIds.length);
-            logger('Unprocessed AnimalIds: ' + JSON.stringify(unprocessedAnimalIds));
-        } else {
-            logger('Unprocessed Animal Count: 0');
-        }
-
-        logger('ConsumedCapacity: ' + JSON.stringify(response.ConsumedCapacity));
+        logger(JSON.stringify(response));
     }
 
     static extractRawEmailBufferFromS3Object(s3Object) {
@@ -125,41 +118,22 @@ class EmailReceiver {
         return objects;
     }
 
-    static translateObjectsToDynamoRequests(objects) {
-        console.log(`translateObjectsToDynamoRequests (${objects.length} objects)`);
-        var objectPages = EmailReceiver.paginateArray(objects, MAX_DYANMO_BATCH_WRITE_SIZE);
-
-        console.log("Forming " + objectPages.length + " Dynamo batchWrite request(s) to table " + TABLE_NAME + " for " + objects.length + " object(s)");
-
-        return objectPages.map(page => EmailReceiver.translatePrePagedObjectsToDynamoRequest(TABLE_NAME, page));
-    }
-
-    static translatePrePagedObjectsToDynamoRequest(tableName, prePagedObjects) {
-        var params = {
-            RequestItems: { },
-            ReturnConsumedCapacity: "TOTAL"
-        };
-        params.RequestItems[tableName] = prePagedObjects.map(o => {
+    static translateObjectsToDynamoPutRequests(objects) {
+        return objects.map(o => {
             if (typeof o.LastIngestedDateTime !== 'string' || o.LastIngestedDateTime.length === 0) {
                 throw new Error("Logic error: attempting to PUT object without valid LastIngestedDateTime: " + JSON.stringify(o, null, 2));
             }
-            return { PutRequest: {
+            
+            return {
+                TableName: TABLE_NAME,
                 Item: o,
                 ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
                 ExpressionAttributeNames: { '#OldIngestedDateTime': 'LastIngestedDateTime' },
-                ExpressionAttributeValues: { ':NewIngestedDateTime': o.LastIngestedDateTime }
-            } };
+                ExpressionAttributeValues: { ':NewIngestedDateTime': o.LastIngestedDateTime },
+                ReturnConsumedCapacity: "TOTAL",
+                ReturnValues: "NONE"
+            };
         });
-        return params;
-    }
-
-    // paginateArray([1, 2, 3, 4, 5], 2) => [[1, 2], [3, 4], [5]]
-    static paginateArray(array, pageSize) {
-        var pages = [];
-        for(var pageIndex = 0; pageIndex * pageSize < array.length; pageIndex++) {
-            pages.push(array.slice(pageIndex * pageSize, Math.min(array.length, (pageIndex + 1) * pageSize)))
-        }
-        return pages;
     }
 }
 

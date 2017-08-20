@@ -19,12 +19,13 @@ test('example1.single-dog works end-to-end with AWS calls mocked out', () => {
 
     var mockS3BucketName = 'SomeS3BucketName';
     var messageIdFromSesNotification = 'i8zg02md8jbqrlqv4vtf8vorr8tlkaak6439bao1';
-
+    var mockDynamoPutResponse = { TableName: 'Animals' };
+    
     var mockS3 = { getObject: jest.fn() };
     mockS3.getObject.mockReturnValue(awsStylePromiseContainerAround(example1S3Object));
 
-    var mockDynamoClient = { batchWrite: jest.fn() };
-    mockDynamoClient.batchWrite.mockReturnValue(awsStylePromiseContainerAround(undefined));
+    var mockDynamoClient = { put: jest.fn() };
+    mockDynamoClient.put.mockReturnValue(awsStylePromiseContainerAround(mockDynamoPutResponse));
 
     var receiver = new emailReceiver(mockS3, mockS3BucketName, mockDynamoClient);
 
@@ -35,8 +36,8 @@ test('example1.single-dog works end-to-end with AWS calls mocked out', () => {
             Key: messageIdFromSesNotification
         });
 
-        expect(mockDynamoClient.batchWrite.mock.calls.length).toBe(1);
-        expect(mockDynamoClient.batchWrite.mock.calls[0][0]).toEqual(example1ExpectedDynamoRequest);
+        expect(mockDynamoClient.put.mock.calls.length).toBe(1);
+        expect(mockDynamoClient.put.mock.calls[0][0]).toEqual(example1ExpectedDynamoRequest);
     });
 });
 
@@ -96,156 +97,31 @@ test('injectConstantProperties merges constant properties into input objects', (
 
 function SomeDynamoCapableObject() { return { LastIngestedDateTime: "2017-08-13T01:58:56.622Z" } }
 
-test('translateObjectsToDynamoRequests creates one batchwrite request per 25 input objects', () => {
+test('translateObjectsToDynamoPutRequests creates one request item per input object', () => {
     expect(
-        emailReceiver.translateObjectsToDynamoRequests(
-            Array.from(new Array(25), SomeDynamoCapableObject)))
-        .toHaveLength(1);
-        
-    expect(
-        emailReceiver.translateObjectsToDynamoRequests(
-            Array.from(new Array(26), SomeDynamoCapableObject)))
-        .toHaveLength(2);
-    
-    expect(
-        emailReceiver.translateObjectsToDynamoRequests(
-            Array.from(new Array(51), SomeDynamoCapableObject)))
+        emailReceiver.translateObjectsToDynamoPutRequests(
+            [SomeDynamoCapableObject(), SomeDynamoCapableObject(), SomeDynamoCapableObject()]))
         .toHaveLength(3);
 });
 
-test('translateObjectsToDynamoRequests creates one PUT request item per input object', () => {
+test('translateObjectsToDynamoPutRequests fails informatively if input object is missing required property LastIngestedDateTime', () => {
     expect(
-        emailReceiver.translateObjectsToDynamoRequests(
-            [SomeDynamoCapableObject(), SomeDynamoCapableObject(), SomeDynamoCapableObject()])
-            [0].RequestItems['Animals'])
-        .toHaveLength(3);
-});
-
-test('translateObjectsToDynamoRequests fails informatively if input object is missing required property LastIngestedDateTime', () => {
-    expect(
-        () => emailReceiver.translateObjectsToDynamoRequests([ { } ]))
+        () => emailReceiver.translateObjectsToDynamoPutRequests([ { } ]))
         .toThrowError(/LastIngestedDateTime/);
 });
 
-test('translateObjectsToDynamoRequests translates objects to correct conditional PutRequest', () => {
+test('translateObjectsToDynamoPutRequests translates objects to correct conditional PUT request', () => {
     expect(
-        emailReceiver.translateObjectsToDynamoRequests(
+        emailReceiver.translateObjectsToDynamoPutRequests(
             [{ id: 1, LastIngestedDateTime: '2017-08-13T01:58:56.622Z' }]))
-        .toEqual([{
-            RequestItems: {
-                'Animals': [
-                    {
-                        PutRequest: {
-                            Item: { id: 1, LastIngestedDateTime: '2017-08-13T01:58:56.622Z' },
-                            ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
-                            ExpressionAttributeNames: { '#OldIngestedDateTime': 'LastIngestedDateTime' },
-                            ExpressionAttributeValues: { ':NewIngestedDateTime': '2017-08-13T01:58:56.622Z' }
-                        }
-                    }
-                ]
-            },
-            ReturnConsumedCapacity: "TOTAL"
-        }]);
-});
-
-test('paginateArray produces one array on input that fits in page size', () => {
-    expect(emailReceiver.paginateArray([], 1)).toEqual([]);
-    expect(emailReceiver.paginateArray([1, 2, 3], 3)).toEqual([[1, 2, 3]]);
-});
-
-test('paginateArray splits arrays that are multiples of page size into that many pages', () => {
-    expect(emailReceiver.paginateArray([1, 2], 1)).toEqual([[1], [2]]);
-    expect(emailReceiver.paginateArray([1, 2, 3], 1)).toEqual([[1], [2], [3]]);
-    expect(emailReceiver.paginateArray([1, 2, 3, 4], 2)).toEqual([[1, 2], [3, 4]]);
-});
-
-test('paginateArray splits arrays that are not multiples of page size with one smaller array at end for leftovers', () => {
-    expect(emailReceiver.paginateArray([1, 2, 3], 2)).toEqual([[1, 2], [3]]);
-    expect(emailReceiver.paginateArray([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
-});
-
-test('logDynamoResponse ignores null responses (for ease of other tests)', () => {
-    var mockLogger = jest.fn();
-    emailReceiver.logDynamoResponse(null, mockLogger);
-    expect(mockLogger.mock.calls.length).toEqual(0);
-});
-
-test('logDynamoResponse ignores undefined responses (for ease of other tests)', () => {
-    var mockLogger = jest.fn();
-    emailReceiver.logDynamoResponse(undefined, mockLogger);
-    expect(mockLogger.mock.calls.length).toEqual(0);
-});
-
-test('logDynamoResponse logs when no animals went unprocessed', () => {
-    const sampleResponse = {
-        "UnprocessedItems": { },
-        "ConsumedCapacity": "irrelevant"
-    };
-
-    var mockLogger = jest.fn();
-    emailReceiver.logDynamoResponse(sampleResponse, mockLogger);
-    expect(mockLogger).toHaveBeenCalledWith('Unprocessed Animal Count: 0');
-});
-
-test('logDynamoResponse logs the number of unprocessed animals', () => {
-    const sampleResponse = {
-        "UnprocessedItems": {
-            "Animals": [
-                { "PutRequest": { "Item": { "AnimalId": "A34892333" } } },
-                { "PutRequest": { "Item": { "AnimalId": "A34892334" } } }
-            ]
-        },
-        "ConsumedCapacity": "irrelevant"
-    };
-
-    var mockLogger = jest.fn();
-    emailReceiver.logDynamoResponse(sampleResponse, mockLogger);
-    expect(mockLogger).toHaveBeenCalledWith('Unprocessed Animal Count: 2');
-});
-
-test('logDynamoResponse logs consumed capacity information', () => {
-    const sampleResponse = {
-        "UnprocessedItems": { },
-        "ConsumedCapacity": [
+        .toEqual([
             {
-                "TableName": "Animals",
-                "CapacityUnits": 42
-            }
-        ]
-    };
-
-    var mockLogger = jest.fn();
-    emailReceiver.logDynamoResponse(sampleResponse, mockLogger);
-
-    expect(mockLogger).toHaveBeenCalledWith('ConsumedCapacity: [{"TableName":"Animals","CapacityUnits":42}]');
-});
-
-test('logDynamoResponse logs AnimalIds of UnprocessedItems', () => {
-    const sampleResponse = {
-        "UnprocessedItems": {
-            "Animals": [
-                {
-                    "PutRequest": {
-                        "Item": {
-                            "IrrelevantField": "foo",
-                            "AnimalId": "A34892332"
-                        }
-                    }
-                },
-                {
-                    "PutRequest": {
-                        "Item": {
-                            "IrrelevantField": "bar",
-                            "AnimalId": "A34892333"
-                        }
-                    }
-                }
-            ]
-        },
-        "ConsumedCapacity": "irrelevant"
-    };
-
-    var mockLogger = jest.fn();
-    emailReceiver.logDynamoResponse(sampleResponse, mockLogger);
-    expect(mockLogger).toHaveBeenCalledWith('Unprocessed AnimalIds: ["A34892332","A34892333"]');
+                TableName: 'Animals',
+                Item: { id: 1, LastIngestedDateTime: '2017-08-13T01:58:56.622Z' },
+                ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
+                ExpressionAttributeNames: { '#OldIngestedDateTime': 'LastIngestedDateTime' },
+                ExpressionAttributeValues: { ':NewIngestedDateTime': '2017-08-13T01:58:56.622Z' },
+                ReturnConsumedCapacity: "TOTAL",
+                ReturnValues: "NONE"
+            }]);
 });
