@@ -1,0 +1,130 @@
+{
+    "mail": {
+        "timestamp": "2017-08-19T22:56:42.354Z",
+        "source": "source1@redacted.com",
+        "messageId": "i8zg02md8jbqrlqv4vtf8vorr8tlkaak6439bao1",
+        "destination": [
+            "destination1@redacted.com"
+        ],
+        "headersTruncated": false,
+        "headers": [
+            {
+                "name": "Return-Path",
+                "value": "<source1@redacted.com>"
+            },
+            {
+                "name": "Received",
+                "value": "from source2@redacted.com (source2@redacted.com [123.45.67.89]) by inbound-smtp.us-west-2.amazonaws.com with SMTP id i8zg02md8jbqrlqv4xtf8vorr8tlkaak6439bao1 for destination1@redacted.com; Sat, 19 Aug 2017 22:56:42 +0000 (UTC)"
+            },
+            {
+                "name": "X-SES-Spam-Verdict",
+                "value": "PASS"
+            },
+            {
+                "name": "X-SES-Virus-Verdict",
+                "value": "PASS"
+            },
+            {
+                "name": "Received-SPF",
+                "value": "pass (spfCheck: domain of redacted.com designates 123.45.67.89 as permitted sender) client-ip=123.45.67.89; envelope-from=source1@redacted.com; helo=source2@redacted.com;"
+            },
+            {
+                "name": "Authentication-Results",
+                "value": "amazonses.com; spf=pass (spfCheck: domain of redacted.com designates 123.45.67.89 as permitted sender) client-ip=123.45.67.89; envelope-from=source1@redacted.com; helo=source2@redacted.com; dkim=pass header.i=@redacted.com;"
+            },
+            {
+                "name": "X-SES-RECEIPT",
+                "value": "AEFBQUFBQUFBQUFINVBOZ0ttN2hTM3FqMFJSVmJMTFNSWjF2T2lJWFJUVlYyckFscFlkcjhDV0s2WUpqN0RDekhtM2NpOWd2bjdJRDBvUThqQlpmdVh5RmlqZ2xDSHdKZ2dmNHNZbzVzQzdXQnFwUmNRM2RjbUZUa1dYSTN5NGoxQnJqY3B1ZlFuMW00bm1iVHBjdkVybUh4TzVoVWh6TkRQU1RqOEVDMHlTdVNlUEcwL2lSRWlQTFJ6MG53MHlpYU12UG1uMTZQdWpAOXlSNzRJRXhWZEl0VHJ4K3FJR1VidTJxVGRtbUpvWVJCOTZCK0djOFJKNEhrSkVKdVZSVlFRQStXb056ajBnYllRT0R0dUtESGJySHRCd081MlRoQlFDNFZJVGVESnR0cjdkS2tON2h2Wjd2TUJQK2tyNzh2amJNQ3VIZlpEMGxRUzVWZnlMR1k0cU5YT3MvaXcyMFQ="
+            },
+            {
+                "name": "X-SES-DKIM-SIGNATURE",
+                "value": "v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=hsbnp7p3ensaochzwyq5wwmceodymuwv; d=amazonses.com; t=1203183403; h=X-SES-RECEIPT:MIME-Version:From:To:Date:Subject:Content-Type:Message-ID; bh=4owHVxhUgi1CH6iPuNEUJrIZNbPlpLbSHfEpf9sJmHs=; b=D454Fatymn+W/OSHQcyUEGzBFwfDkWS63VIqwdWNeD20buwFinOrN2dAf3uaU7fX lxnoJ8pbfSa7YDfA8N0rea3ztO0/93teM/YDaPLKi5bj+LIA4GGrjRm2WEvNUSLYghN vzIFzGNRscXBhSReFHePJ5UuD9fgsmUenCDf05Lg="
+            },
+            {
+                "name": "DKIM-Signature",
+                "value": "v=1; a=rsa-sha1; c=relaxed/relaxed; d=redacted.com; h=mime-version:sender:from:to:subject:content-type; s=smtpapi; bh=pt3dxCcsG6+rKsRpSsz2bmmTj8c=; b=MqyxYbiJ76cTWG5qXf2IirAf47zMLpThMQjQM+hzUjxkGhG8yyJtfjO/7h9aWJCG+FGlDn9bvNSnMmYnS73C9vaaHLZBNEFWad3AWuCjlRjv7jIYE2Fks2BVVMMBZ5P34d8GOA7GEGcyajZvK5nbI2joJi2ZVabSCPxfvLI3OU8="
+            },
+            {
+                "name": "Received",
+                "value": "by filter0123.redacted.com with SMTP id filter0123-30021-5498C229-E 2017-08-19 22:56:41.328687633 +0000 UTC"
+            },
+            {
+                "name": "Received",
+                "value": "from Redacted (unknown [123.45.67.88]) by source5.redacted.com (SG) with ESMTP id vbxIHna9QNyjmqlDVyDE_w for <destination1@redacted.com>; Sat, 19 Aug 2017 22:56:41.231 +0000 (UTC)"
+            },
+            {
+                "name": "MIME-Version",
+                "value": "1.0"
+            },
+            {
+                "name": "Sender",
+                "value": "\"Redacted\" <source4@redacted.com>"
+            },
+            {
+                "name": "From",
+                "value": "\"Redacted\" <source4@redacted.com>"
+            },
+            {
+                "name": "To",
+                "value": "destination1@redacted.com"
+            },
+            {
+                "name": "Date",
+                "value": "Sat, 19 Aug 2017 22:56:41 +0000 (UTC)"
+            },
+            {
+                "name": "Subject",
+                "value": "redacted"
+            },
+            {
+                "name": "Content-Type",
+                "value": "multipart/mixed; boundary=--boundary_234_e885167e-bf65-4f48-9441-de4d3b60a7e4"
+            },
+            {
+                "name": "Message-ID",
+                "value": "<source3@redacted.com>"
+            },
+            {
+                "name": "X-SG-EID",
+                "value": "1kZ0QCkWqUGyHFe0TdTyunAR5ToBqjQQwWCVtJDfULQ+2BqkqywXwRtWupsjDHEHxN8BE39ak3UquI dVxMCbuXJtF5g3r2fa1ttzL8p0sK8YjcdzucPq4QY/uf20DCje2rzzvMTvasNFdwjySrbfd/fy/Kv1 b6jhJREe9+pKhA9LVkzN6BcR7NUhHtVDyYD7p+y995U2c+DGB4WHgzars5Dpy2DL7lrejCcUlRXuGk ku4TMigh+LQHp8C6cVMyjTUh/taElnooeZ+3kxAfHc1Q=="
+            }
+        ],
+        "commonHeaders": {
+            "returnPath": "source1@redacted.com",
+            "from": [
+                "Redacted <source4@redacted.com>"
+            ],
+            "sender": "Redacted <source4@redacted.com>",
+            "date": "Sat, 19 Aug 2017 22:56:41 +0000 (UTC)",
+            "to": [
+                "destination1@redacted.com"
+            ],
+            "messageId": "<source3@redacted.com>",
+            "subject": "redacted"
+        }
+    },
+    "receipt": {
+        "timestamp": "2017-08-19T22:56:42.354Z",
+        "processingTimeMillis": 886,
+        "recipients": [
+            "destination1@redacted.com"
+        ],
+        "spamVerdict": {
+            "status": "PASS"
+        },
+        "virusVerdict": {
+            "status": "PASS"
+        },
+        "spfVerdict": {
+            "status": "PASS"
+        },
+        "dkimVerdict": {
+            "status": "GRAY"
+        },
+        "action": {
+            "type": "Lambda",
+            "functionArn": "arn:aws:lambda:us-west-2:012345678901:function:animal-status-dev-receiveemail",
+            "invocationType": "Event"
+        }
+    }
+}

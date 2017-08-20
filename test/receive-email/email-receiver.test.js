@@ -3,7 +3,42 @@
 const fs = require('fs');
 const path = require('path');
 
-const emailReceiver = require('../../functions/receive-email/email-receiver')
+const emailReceiver = require('../../functions/receive-email/email-receiver');
+
+function awsStylePromiseContainerAround(data) {
+    return {
+        promise: () => new Promise((resolve, reject) => { resolve(data); })
+    };
+}
+
+test('example1.single-dog works end-to-end with AWS calls mocked out', () => {
+    var example1SesNotification = JSON.parse(fs.readFileSync(path.join(__dirname, 'example1.single-dog.sesNotification.json')));
+    var example1S3MessageContent = fs.readFileSync(path.join(__dirname, 'example1.single-dog.s3MessageContent.blob'));
+    var example1S3Object = { Body: example1S3MessageContent };
+    var example1ExpectedDynamoRequest = JSON.parse(fs.readFileSync(path.join(__dirname, 'example1.single-dog.dynamoRequest.json')));
+
+    var mockS3BucketName = 'SomeS3BucketName';
+    var messageIdFromSesNotification = 'i8zg02md8jbqrlqv4vtf8vorr8tlkaak6439bao1';
+
+    var mockS3 = { getObject: jest.fn() };
+    mockS3.getObject.mockReturnValue(awsStylePromiseContainerAround(example1S3Object));
+
+    var mockDynamoClient = { batchWrite: jest.fn() };
+    mockDynamoClient.batchWrite.mockReturnValue(awsStylePromiseContainerAround(undefined));
+
+    var receiver = new emailReceiver(mockS3, mockS3BucketName, mockDynamoClient);
+
+    return receiver.handleEmailNotification(example1SesNotification).then(() => {
+        expect(mockS3.getObject.mock.calls.length).toBe(1);
+        expect(mockS3.getObject.mock.calls[0][0]).toEqual({
+            Bucket: mockS3BucketName,
+            Key: messageIdFromSesNotification
+        });
+
+        expect(mockDynamoClient.batchWrite.mock.calls.length).toBe(1);
+        expect(mockDynamoClient.batchWrite.mock.calls[0][0]).toEqual(example1ExpectedDynamoRequest);
+    });
+});
 
 test('extractRawEmailBufferFromS3Object extracts Body', () => {
     var sampleBodyBuffer = Buffer.alloc(20, "1");
@@ -14,8 +49,8 @@ test('extractRawEmailBufferFromS3Object extracts Body', () => {
 });
 
 test('extractCsvBufferFromRawEmailBufferAsync correctly translates from email content to csv', () => {
-    var exampleEmailBuffer = fs.readFileSync(path.join(__dirname, 'email-receiver.test.example-email-1-raw.txt'));
-    var expectedCsvBuffer = fs.readFileSync(path.join(__dirname, 'email-receiver.test.example-email-1-attachment.csv'));
+    var exampleEmailBuffer = fs.readFileSync(path.join(__dirname, 'example1.single-dog.s3MessageContent.blob'));
+    var expectedCsvBuffer = fs.readFileSync(path.join(__dirname, 'example1.single-dog.csv'));
     
     return expect(emailReceiver.extractCsvBufferFromRawEmailBufferAsync(exampleEmailBuffer))
         .resolves.toEqual(expectedCsvBuffer);

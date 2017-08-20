@@ -1,5 +1,8 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+
 const nestedCsvParser = require('../../functions/receive-email/nested-csv-parser');
 
 test('Example from documentation works end to end', () => {
@@ -53,6 +56,14 @@ SubType2    ,              ,              ,            ,            , ST2P1_C   
 
     return expect(nestedCsvParser.parseAsync(documentedInput))
         .resolves.toEqual(documentedOutput);
+});
+
+test('Real example example1.single-dog.csv works end to end', () => {
+    var example1Json = JSON.parse(fs.readFileSync(path.join(__dirname, 'example1.single-dog.parsedCsv.json'), 'utf8'));
+    var example1CsvBuffer = fs.readFileSync(path.join(__dirname, 'example1.single-dog.csv'));
+
+    return expect(nestedCsvParser.parseAsync(example1CsvBuffer))
+        .resolves.toEqual(example1Json);
 });
 
 test('subTypeToPropertyMap correctly groups example headers', () => {
