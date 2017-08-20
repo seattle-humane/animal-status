@@ -176,6 +176,33 @@ test('logDynamoResponse ignores undefined responses (for ease of other tests)', 
     expect(mockLogger.mock.calls.length).toEqual(0);
 });
 
+test('logDynamoResponse logs when no animals went unprocessed', () => {
+    const sampleResponse = {
+        "UnprocessedItems": { },
+        "ConsumedCapacity": "irrelevant"
+    };
+
+    var mockLogger = jest.fn();
+    emailReceiver.logDynamoResponse(sampleResponse, mockLogger);
+    expect(mockLogger).toHaveBeenCalledWith('Unprocessed Animal Count: 0');
+});
+
+test('logDynamoResponse logs the number of unprocessed animals', () => {
+    const sampleResponse = {
+        "UnprocessedItems": {
+            "Animals": [
+                { "PutRequest": { "Item": { "AnimalId": "A34892333" } } },
+                { "PutRequest": { "Item": { "AnimalId": "A34892334" } } }
+            ]
+        },
+        "ConsumedCapacity": "irrelevant"
+    };
+
+    var mockLogger = jest.fn();
+    emailReceiver.logDynamoResponse(sampleResponse, mockLogger);
+    expect(mockLogger).toHaveBeenCalledWith('Unprocessed Animal Count: 2');
+});
+
 test('logDynamoResponse logs consumed capacity information', () => {
     const sampleResponse = {
         "UnprocessedItems": { },
@@ -215,12 +242,7 @@ test('logDynamoResponse logs AnimalIds of UnprocessedItems', () => {
                 }
             ]
         },
-        "ConsumedCapacity": [
-            {
-                "TableName": "Animals",
-                "CapacityUnits": 42
-            }
-        ]
+        "ConsumedCapacity": "irrelevant"
     };
 
     var mockLogger = jest.fn();

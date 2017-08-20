@@ -55,7 +55,10 @@ class EmailReceiver {
 
         if (response.UnprocessedItems.hasOwnProperty('Animals')) {
             var unprocessedAnimalIds = response.UnprocessedItems.Animals.map(a => a.PutRequest.Item.AnimalId);
+            logger('Unprocessed Animal Count: ' + unprocessedAnimalIds.length);
             logger('Unprocessed AnimalIds: ' + JSON.stringify(unprocessedAnimalIds));
+        } else {
+            logger('Unprocessed Animal Count: 0');
         }
 
         logger('ConsumedCapacity: ' + JSON.stringify(response.ConsumedCapacity));
