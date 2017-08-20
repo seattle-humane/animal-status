@@ -129,16 +129,8 @@ class EmailReceiver {
     dynamoPutAsync(singleRequestParam) {
         return this.dynamodbDocumentClient
             .put(singleRequestParam).promise()
-            .then(EmailReceiver.logDynamoPutResponse)
             .catch(err => { throw Object.assign(err, {triggeringDynamoRequest: singleRequestParam}) });
     }
-
-    static logDynamoPutResponse(response, logger = console.log) {
-        if (!response) return;
-
-        logger(JSON.stringify(response));
-    }
-
 }
 
 module.exports = EmailReceiver;
