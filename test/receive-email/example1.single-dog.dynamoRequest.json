@@ -688,10 +688,7 @@
         ],
         "LastIngestedDateTime": "2017-08-19T22:56:42.354Z"
     },
-    "ConditionExpression": "#OldIngestedDateTime < :NewIngestedDateTime",
-    "ExpressionAttributeNames": {
-        "#OldIngestedDateTime": "LastIngestedDateTime"
-    },
+    "ConditionExpression": "attribute_not_exists(LastIngestedDateTime) or (LastIngestedDateTime < :NewIngestedDateTime)",
     "ExpressionAttributeValues": {
         ":NewIngestedDateTime": "2017-08-19T22:56:42.354Z"
     },

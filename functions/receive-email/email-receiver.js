@@ -109,8 +109,7 @@ class EmailReceiver {
             return {
                 TableName: TABLE_NAME,
                 Item: o,
-                ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
-                ExpressionAttributeNames: { '#OldIngestedDateTime': 'LastIngestedDateTime' },
+                ConditionExpression: 'attribute_not_exists(LastIngestedDateTime) or (LastIngestedDateTime < :NewIngestedDateTime)',
                 ExpressionAttributeValues: { ':NewIngestedDateTime': o.LastIngestedDateTime },
                 ReturnConsumedCapacity: "TOTAL",
                 ReturnValues: "NONE"

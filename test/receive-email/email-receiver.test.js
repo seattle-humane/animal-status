@@ -120,8 +120,7 @@ test('translateObjectsToDynamoPutRequests translates objects to correct conditio
             {
                 TableName: 'Animals',
                 Item: { id: 1, LastIngestedDateTime: '2017-08-13T01:58:56.622Z' },
-                ConditionExpression: '#OldIngestedDateTime < :NewIngestedDateTime',
-                ExpressionAttributeNames: { '#OldIngestedDateTime': 'LastIngestedDateTime' },
+                ConditionExpression: 'attribute_not_exists(LastIngestedDateTime) or (LastIngestedDateTime < :NewIngestedDateTime)',
                 ExpressionAttributeValues: { ':NewIngestedDateTime': '2017-08-13T01:58:56.622Z' },
                 ReturnConsumedCapacity: "TOTAL",
                 ReturnValues: "NONE"
