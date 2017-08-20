@@ -128,7 +128,18 @@ class EmailReceiver {
     dynamoPutAsync(singleRequestParam) {
         return this.dynamodbDocumentClient
             .put(singleRequestParam).promise()
-            .catch(err => { throw Object.assign(err, {triggeringDynamoRequest: singleRequestParam}) });
+            .catch(err => handleDynamoPutError(singleRequestParam, err));
+    }
+
+    static handleDynamoPutError(triggeringRequest, err) {
+        Object.assign(err, { triggeringDynamoRequest: triggeringRequest });
+        if (err.code == 'ConditionalCheckFailedException') {
+            // We eat these because in this case, we don't want to prevent the other put requests from triggering
+            console.warn('Ignoring ConditionalCheckFailedException on AnimalID ' + triggeringRequest.Item.AnimalId);
+            console.warn(JSON.stringify(err, null, 2));
+        } else {
+            throw err;
+        }
     }
 }
 
