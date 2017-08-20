@@ -47,14 +47,18 @@ class EmailReceiver {
     dynamoBatchWriteAsync(singleRequestParam) {
         return this.dynamodbDocumentClient
             .batchWrite(singleRequestParam).promise()
-            .then(response => {
-                if(response && response.UnprocessedItems.length > 0) {
-                    var unprocessedAnimalIds = response.UnprocessedItems.Animals.map(a => a.AnimalId);
-                    console.log('Unprocessed AnimalIds: ' + JSON.stringify(unprocessedAnimalIds));
-                }
-                console.log(JSON.stringify(response));
-                // TODO: improve logging? make less verbose?
-            });
+            .then(EmailReceiver.logDynamoResponse);
+    }
+
+    static logDynamoResponse(response, logger=console.log) {
+        if (!response) return;
+
+        if (response.UnprocessedItems.hasOwnProperty('Animals')) {
+            var unprocessedAnimalIds = response.UnprocessedItems.Animals.map(a => a.PutRequest.Item.AnimalId);
+            logger('Unprocessed AnimalIds: ' + JSON.stringify(unprocessedAnimalIds));
+        }
+
+        logger('ConsumedCapacity: ' + JSON.stringify(response.ConsumedCapacity));
     }
 
     static extractRawEmailBufferFromS3Object(s3Object) {
@@ -130,8 +134,7 @@ class EmailReceiver {
     static translatePrePagedObjectsToDynamoRequest(tableName, prePagedObjects) {
         var params = {
             RequestItems: { },
-            ReturnConsumedCapacity: "TOTAL",
-            ReturnItemCollectionMetrics: "SIZE"
+            ReturnConsumedCapacity: "TOTAL"
         };
         params.RequestItems[tableName] = prePagedObjects.map(o => {
             if (typeof o.LastIngestedDateTime !== 'string' || o.LastIngestedDateTime.length === 0) {

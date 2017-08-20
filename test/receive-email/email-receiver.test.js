@@ -144,8 +144,7 @@ test('translateObjectsToDynamoRequests translates objects to correct conditional
                     }
                 ]
             },
-            ReturnConsumedCapacity: "TOTAL",
-            ReturnItemCollectionMetrics: "SIZE"
+            ReturnConsumedCapacity: "TOTAL"
         }]);
 });
 
@@ -163,4 +162,68 @@ test('paginateArray splits arrays that are multiples of page size into that many
 test('paginateArray splits arrays that are not multiples of page size with one smaller array at end for leftovers', () => {
     expect(emailReceiver.paginateArray([1, 2, 3], 2)).toEqual([[1, 2], [3]]);
     expect(emailReceiver.paginateArray([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+});
+
+test('logDynamoResponse ignores null responses (for ease of other tests)', () => {
+    var mockLogger = jest.fn();
+    emailReceiver.logDynamoResponse(null, mockLogger);
+    expect(mockLogger.mock.calls.length).toEqual(0);
+});
+
+test('logDynamoResponse ignores undefined responses (for ease of other tests)', () => {
+    var mockLogger = jest.fn();
+    emailReceiver.logDynamoResponse(undefined, mockLogger);
+    expect(mockLogger.mock.calls.length).toEqual(0);
+});
+
+test('logDynamoResponse logs consumed capacity information', () => {
+    const sampleResponse = {
+        "UnprocessedItems": { },
+        "ConsumedCapacity": [
+            {
+                "TableName": "Animals",
+                "CapacityUnits": 42
+            }
+        ]
+    };
+
+    var mockLogger = jest.fn();
+    emailReceiver.logDynamoResponse(sampleResponse, mockLogger);
+
+    expect(mockLogger).toHaveBeenCalledWith('ConsumedCapacity: [{"TableName":"Animals","CapacityUnits":42}]');
+});
+
+test('logDynamoResponse logs AnimalIds of UnprocessedItems', () => {
+    const sampleResponse = {
+        "UnprocessedItems": {
+            "Animals": [
+                {
+                    "PutRequest": {
+                        "Item": {
+                            "IrrelevantField": "foo",
+                            "AnimalId": "A34892332"
+                        }
+                    }
+                },
+                {
+                    "PutRequest": {
+                        "Item": {
+                            "IrrelevantField": "bar",
+                            "AnimalId": "A34892333"
+                        }
+                    }
+                }
+            ]
+        },
+        "ConsumedCapacity": [
+            {
+                "TableName": "Animals",
+                "CapacityUnits": 42
+            }
+        ]
+    };
+
+    var mockLogger = jest.fn();
+    emailReceiver.logDynamoResponse(sampleResponse, mockLogger);
+    expect(mockLogger).toHaveBeenCalledWith('Unprocessed AnimalIds: ["A34892332","A34892333"]');
 });

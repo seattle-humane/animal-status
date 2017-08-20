@@ -702,6 +702,5 @@
             }
         ]
     },
-    "ReturnConsumedCapacity": "TOTAL",
-    "ReturnItemCollectionMetrics": "SIZE"
+    "ReturnConsumedCapacity": "TOTAL"
 }
