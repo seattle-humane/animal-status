@@ -62,7 +62,7 @@
                 "CreatedBy": "redacted",
                 "LastUpdatedDateTime": "2017-08-17T15:20:00Z",
                 "UpdatedBy": "redacted",
-                "Expires": "6/13/2017 12:00 AM"
+                "ExpiresDateTime": "2017-06-13T07:00:00Z"
             }
         ],
         "AnimalHold": [

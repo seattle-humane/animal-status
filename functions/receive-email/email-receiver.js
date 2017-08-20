@@ -89,7 +89,8 @@ class EmailReceiver {
             .replace(/\(login\)/g, "")
             .replace(/Sub-location/g, "SubLocation")
             .replace(/ID/g, "Id")
-            .replace(/Date$/g, "DateTime");
+            .replace(/Date$/g, "DateTime")
+            .replace(/Expires/g, "ExpiresDateTime");
     }
 
     static sanitizePropertyValue(originalValue, propertyName) {

@@ -20,7 +20,7 @@ test('example1.single-dog works end-to-end with AWS calls mocked out', () => {
     var mockS3BucketName = 'SomeS3BucketName';
     var messageIdFromSesNotification = 'i8zg02md8jbqrlqv4vtf8vorr8tlkaak6439bao1';
     var mockDynamoPutResponse = { TableName: 'Animals' };
-    
+
     var mockS3 = { getObject: jest.fn() };
     mockS3.getObject.mockReturnValue(awsStylePromiseContainerAround(example1S3Object));
 
@@ -75,6 +75,7 @@ test('sanitizeColumnName sanitizes real example inputs as expected', () => {
     expect(emailReceiver.sanitizeColumnName('Pet ID Number')).toEqual('PetIdNumber');
     expect(emailReceiver.sanitizeColumnName('Sub-location')).toEqual('SubLocation');
     expect(emailReceiver.sanitizeColumnName('Date of Birth')).toEqual('DateOfBirth');
+    expect(emailReceiver.sanitizeColumnName('Expires')).toEqual('ExpiresDateTime');
 });
 
 test('sanitizeDateTime converts from original format to ISO8601', () => {
