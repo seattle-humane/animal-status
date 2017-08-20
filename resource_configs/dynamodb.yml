@@ -15,7 +15,7 @@ Resources:
           KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 100
-        WriteCapacityUnits: 10
+        WriteCapacityUnits: 50
       GlobalSecondaryIndexes:
         - IndexName: LocationAnimalIndex
           KeySchema:
